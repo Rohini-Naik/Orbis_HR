@@ -14,7 +14,10 @@ click==8.4.1
 cuda-bindings==13.3.1
 cuda-pathfinder==1.5.5
 cuda-toolkit==13.0.2
+dnspython==2.8.0
 durationpy==0.10
+email-validator==2.3.0
+fastapi==0.138.0
 filelock==3.29.4
 flatbuffers==25.12.19
 frozenlist==1.8.0
@@ -41,6 +44,7 @@ mdurl==0.1.2
 mmh3==5.2.1
 mpmath==1.3.0
 multidict==6.7.1
+mysql-connector-python==9.7.0
 narwhals==2.22.1
 networkx==3.6.1
 numpy==2.4.6
@@ -83,6 +87,7 @@ pyproject_hooks==1.2.0
 python-dateutil==2.9.0.post0
 python-docx==1.2.0
 python-dotenv==1.2.2
+python-multipart==0.0.32
 PyYAML==6.0.3
 referencing==0.37.0
 regex==2026.5.9
@@ -97,6 +102,7 @@ sentence-transformers==5.6.0
 setuptools==81.0.0
 shellingham==1.5.4
 six==1.17.0
+starlette==1.3.1
 sympy==1.14.0
 tenacity==9.1.4
 threadpoolctl==3.6.0

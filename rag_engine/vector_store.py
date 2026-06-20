@@ -58,6 +58,20 @@ def upsert_chunks(
     return len(chunks)
 
 
+def delete_by_source(source: str) -> None:
+    """Remove all chunks that came from a given policy file."""
+    get_policy_collection().delete(where={"source": source})
+
+
+def count_chunks() -> int:
+    return get_policy_collection().count()
+
+
+def count_by_source(source: str) -> int:
+    result = get_policy_collection().get(where={"source": source}, include=[])
+    return len(result.get("ids", []))
+
+
 def search_chunks(
     query_embedding: list[float],
     top_k: int,
