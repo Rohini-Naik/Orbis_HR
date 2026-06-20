@@ -77,17 +77,17 @@ HUGGINGFACE_API_KEY=hf_your_token_here
 MYSQL_HOST=localhost
 MYSQL_PORT=3306
 MYSQL_USER=orbis_user
-MYSQL_PASSWORD=Ovi@2021
+MYSQL_PASSWORD=your_db_password
 MYSQL_DATABASE=orbis_hr
 
 # MySQL — read-write app state (users, chats, audit) — isolated DB
 MYSQL_APP_USER=orbis_app
-MYSQL_APP_PASSWORD=Ovi@2021
+MYSQL_APP_PASSWORD=your_db_password
 MYSQL_APP_DATABASE=orbis_app
 
 # MySQL — read-write HR-data admin (only the admin "Employees" tab)
 MYSQL_HR_ADMIN_USER=orbis_hr_admin
-MYSQL_HR_ADMIN_PASSWORD=Ovi@2021
+MYSQL_HR_ADMIN_PASSWORD=your_db_password
 
 # Models
 EMBEDDING_MODEL_NAME=BAAI/bge-base-en-v1.5
