@@ -10,19 +10,21 @@ SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt"}
 
 
 def infer_category(file_name: str) -> str:
-    lower_name = file_name.lower()
+    """Classify a policy file into the categories the UI filters by:
+    Leave, Conduct, Benefits, Privacy, Work, General."""
+    name = file_name.lower()
 
-    if "leave" in lower_name:
+    if any(k in name for k in ("leave", "maternity", "paternity")):
         return "Leave"
-    if "posh" in lower_name:
-        return "POSH"
-    if "conduct" in lower_name or "ethics" in lower_name:
+    if any(k in name for k in ("posh", "harassment", "conduct", "ethics", "disciplin", "whistle")):
         return "Conduct"
-    if "remuneration" in lower_name or "salary" in lower_name:
-        return "Compensation"
-    if "policy" in lower_name:
-        return "Policy"
-
+    if any(k in name for k in ("benefit", "health", "wellness", "remuneration",
+                               "salary", "travel", "expense", "reimburse")):
+        return "Benefits"
+    if any(k in name for k in ("privacy", "confidential", "data", "diba")):
+        return "Privacy"
+    if any(k in name for k in ("work", "hybrid", "remote", "wfh")):
+        return "Work"
     return "General"
 
 

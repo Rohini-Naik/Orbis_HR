@@ -1,12 +1,26 @@
-# Ignore environment files
+# Secrets / environment
 .env
+.env.*
 
-# Python cache
+# Setup & bootstrap scripts (shared privately, not committed)
+scripts/
+
+# Python
 __pycache__/
 *.py[cod]
-
-# Virtualenv
 venv/
 env/
-venv/
+
+# Node / frontend
+node_modules/
+Frontend/node_modules/
+Frontend/dist/
+dist/
+
+# Vector store — regenerate with: python -m rag_engine.maintenance
+data/
+
+# Misc
+*.log
+.DS_Store
 Orbis_HR_Compliance_Copilot_Presentation.pptx
