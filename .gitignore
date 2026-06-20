@@ -1,2 +1,12 @@
+# Ignore environment files
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtualenv
+venv/
+env/
 venv/
 Orbis_HR_Compliance_Copilot_Presentation.pptx
