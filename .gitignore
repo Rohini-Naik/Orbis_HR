@@ -2,8 +2,9 @@
 .env
 .env.*
 
-# Setup & bootstrap scripts (shared privately, not committed)
-scripts/
+# Scripts: commit only the .sql bootstraps; keep the .py/.sh helpers out
+scripts/*.py
+scripts/*.sh
 
 # Python
 __pycache__/
