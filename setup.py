@@ -116,6 +116,9 @@ def _diagnose(attempts: list[tuple[str, str]]) -> str:
     if "can't connect" in joined or "connection refused" in joined:
         return ("the MySQL server is not running. Start it with "
                 "`sudo systemctl start mysql` and run setup again.")
+    if "1819" in joined or "does not satisfy the current policy" in joined:
+        return ("this server enforces a password policy. Setup has been updated "
+                "to work with it — run `git pull` and try again.")
     if "access denied" in joined:
         return (
             "MySQL's root account has a password set, and this machine's "
@@ -184,10 +187,14 @@ def mysql_root() -> list[str]:
     # Probe with the privileges bootstrap actually needs. Connecting is not
     # enough: an unprivileged `root` can pass `SELECT 1` and then fail on the
     # first CREATE DATABASE.
+    # The probe user needs a password that satisfies validate_password, which
+    # many installs enable: a passwordless CREATE USER is rejected outright and
+    # would make a perfectly good admin login look like a failure.
     probe = (
         "CREATE DATABASE IF NOT EXISTS orbis_setup_probe; "
         "DROP DATABASE orbis_setup_probe; "
-        "CREATE USER IF NOT EXISTS 'orbis_setup_probe'@'localhost'; "
+        "CREATE USER IF NOT EXISTS 'orbis_setup_probe'@'localhost' "
+        "IDENTIFIED BY 'Pr0be#Setup!2026'; "
         "DROP USER 'orbis_setup_probe'@'localhost';"
     )
 
@@ -303,7 +310,18 @@ def run_sql_file(path: Path, db_password: str, extra: list[str] | None = None) -
         stderr=subprocess.PIPE,
     )
     if proc.returncode != 0:
-        die(f"{path.name} failed:\n{proc.stderr.decode(errors='ignore')[:800]}")
+        error = proc.stderr.decode(errors="ignore")
+        if "1819" in error or "does not satisfy the current policy" in error:
+            die(
+                f"{path.name} failed: MySQL rejected the generated database "
+                "password as too weak.\n"
+                "    This server enforces validate_password. Either set a "
+                "stronger MYSQL_PASSWORD / MYSQL_APP_PASSWORD /\n"
+                "    MYSQL_HR_ADMIN_PASSWORD in .env (12+ characters, mixed case, "
+                "a digit and a symbol), or relax the\n"
+                "    policy: SET GLOBAL validate_password.policy = LOW;"
+            )
+        die(f"{path.name} failed:\n{error[:800]}")
 
 
 # ------------------------------------------------------------------------ .env
@@ -315,7 +333,9 @@ def configure_env() -> dict[str, str]:
         ok(".env already exists — leaving it untouched")
     else:
         alphabet = string.ascii_letters + string.digits
-        db_password = "".join(secrets.choice(alphabet) for _ in range(24))
+        # Mixed case, digits and a symbol, so servers running
+        # validate_password accept it without the policy being relaxed.
+        db_password = "".join(secrets.choice(alphabet) for _ in range(22)) + "#7"
         text = (ROOT / ".env.example").read_text(encoding="utf-8").replace(
             "__GENERATED__", db_password
         )
