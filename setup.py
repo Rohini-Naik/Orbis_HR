@@ -245,24 +245,24 @@ def configure_env() -> dict[str, str]:
         ok("created .env with a generated database password")
 
         print()
-        print("  A Hugging Face token is required for the AI to answer anything.")
-        print(f"  {DIM}Create one at https://huggingface.co/settings/tokens{OFF}")
-        print(f'  {DIM}It needs the "Make calls to Inference Providers" permission.{OFF}')
+        print("  An API key is required for the AI to answer anything.")
+        print(f"  {DIM}Groq is the default provider — the free tier is enough.{OFF}")
+        print(f"  {DIM}Create a key at https://console.groq.com/keys{OFF}")
         print()
-        token = input("  Paste your Hugging Face token (Enter to skip): ").strip()
-        if token:
+        key = input("  Paste your Groq API key (Enter to skip): ").strip()
+        if key:
             env_path.write_text(
                 re.sub(
-                    r"^HUGGINGFACE_API_KEY=.*$",
-                    f"HUGGINGFACE_API_KEY={token}",
+                    r"^GROQ_API_KEY=.*$",
+                    f"GROQ_API_KEY={key}",
                     env_path.read_text(encoding="utf-8"),
                     flags=re.MULTILINE,
                 ),
                 encoding="utf-8",
             )
-            ok("token saved")
+            ok("key saved")
         else:
-            warn("no token yet — add HUGGINGFACE_API_KEY to .env before using the chat")
+            warn("no key yet — add GROQ_API_KEY to .env before using the chat")
 
     values: dict[str, str] = {}
     for line in env_path.read_text(encoding="utf-8").splitlines():

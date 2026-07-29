@@ -58,9 +58,14 @@ Open **<http://localhost:5173>** and sign in with the admin account `setup.sh`
 created for you. That's the whole install.
 
 **You need installed first:** Python 3.11+, Node.js 20+, MySQL 8 (running), and a
-[Hugging Face token](https://huggingface.co/settings/tokens) with the
-*"Make calls to Inference Providers"* permission — `setup.sh` will ask you to
-paste it.
+free [Groq API key](https://console.groq.com/keys) — setup will ask you to paste
+it. (Hugging Face is supported too; set `LLM_PROVIDER=huggingface` and
+`HUGGINGFACE_API_KEY` in `.env`.)
+
+> **Setting up on a second machine?** Everything above is all you need — but note
+> that `.env` and the search index are deliberately *not* in git, so setup
+> recreates them. You will be asked for your own Groq key and for the MySQL root
+> password on that machine. See **Running it on another machine** below.
 
 Setup is safe to re-run: it skips anything already done. It generates your
 database password automatically and writes it to `.env` (never committed).
@@ -110,6 +115,82 @@ Then run the two servers in separate terminals:
 `uvicorn app.main:app --reload --port 8000` and `cd Frontend && npm run dev`.
 
 </details>
+
+---
+
+## Running it on another machine
+
+A fresh clone deliberately does **not** carry your `.env`, your database, or the
+search index — secrets must not be in git, and the index is a build artefact.
+Setup recreates all three.
+
+**1. Install the prerequisites**
+
+| | |
+|---|---|
+| Python 3.11+ | <https://www.python.org/downloads/> (on Windows tick *Add Python to PATH*) |
+| Node.js 20+ | <https://nodejs.org> |
+| MySQL 8 | make sure the server is actually running |
+| Groq API key | free at <https://console.groq.com/keys> |
+
+**2. Clone and run setup**
+
+```bash
+git clone https://github.com/Rohini-Naik/Orbis_HR.git
+cd Orbis_HR
+./setup.sh          # Windows: setup.bat
+```
+
+It will ask for two things: your **Groq API key**, and your **MySQL root
+password** (on Linux it usually uses `sudo` instead). Everything else — the
+database password, the `.env` file, the Python and npm packages, the employee
+data and the search index — it handles itself.
+
+First run takes a few minutes: it downloads the embedding model (~440 MB) and
+installs dependencies.
+
+**3. Create your administrator**
+
+Setup prompts for this at the end. If you skipped it:
+
+```bash
+source venv/bin/activate            # Windows: venv\Scripts\activate
+python -m app.provision list-admins
+python -m app.provision create-admin --email rohit.verma@orbis.com
+```
+
+Any company address from the `employees` table works. To see some:
+`SELECT FullName, Email FROM employees LIMIT 5;`
+
+**4. Start it**
+
+```bash
+./start.sh          # Windows: start.bat
+```
+
+Then open <http://localhost:5173>.
+
+**5. Check it works**
+
+```bash
+python -m tests.e2e_check --admin-email you@orbis.com --admin-password 'yours'
+```
+
+45 checks against the running system. Add `--quick` to skip the ones that call
+the AI.
+
+### If something goes wrong
+
+| Symptom | Cause and fix |
+|---|---|
+| `mysql client not found` | MySQL isn't on PATH. Windows: add `C:\Program Files\MySQL\MySQL Server 8.0\bin` |
+| `Could not get administrative access to MySQL` | The server isn't running (`sudo systemctl start mysql`) or the root password was wrong |
+| `ABORT: password placeholder not substituted` | A bootstrap `.sql` was run by hand. Use `./setup.sh`, which substitutes it |
+| Chat replies "Hi! I'm Orbis" to every question | `GROQ_API_KEY` is missing or invalid — the real error is in the backend terminal |
+| `employees table is missing [...]` | The table predates this version. Re-run setup to rebuild it |
+| Frontend loads but every call fails | Backend isn't running, or `VITE_API_BASE_URL` in `Frontend/.env` is wrong |
+
+Setup is safe to re-run at any point; it skips work already done.
 
 ---
 
