@@ -117,8 +117,14 @@ def _diagnose(attempts: list[tuple[str, str]]) -> str:
         return ("the MySQL server is not running. Start it with "
                 "`sudo systemctl start mysql` and run setup again.")
     if "access denied" in joined:
-        return ("MySQL's root account has a password set. Enter it below, or "
-                "reset it: https://dev.mysql.com/doc/refman/8.0/en/resetting-permissions.html")
+        return (
+            "MySQL's root account has a password set, and this machine's "
+            "maintenance account did not work either.\n"
+            "    Either enter the root password below, or point setup at any "
+            "account that can create databases and users by adding to .env:\n"
+            "        MYSQL_ADMIN_USER=someadmin\n"
+            "        MYSQL_ADMIN_PASSWORD=theirpassword"
+        )
     if "command not found" in joined or "no such file" in joined:
         return ("the mysql client is not on PATH. On Windows add "
                 r"C:\Program Files\MySQL\MySQL Server 8.0\bin")
@@ -218,6 +224,19 @@ def mysql_root() -> list[str]:
         _confirm_target(_root_cmd)
         return _root_cmd
 
+    # An explicit admin account, for machines where root is not usable.
+    admin_user = _env_value("MYSQL_ADMIN_USER", "")
+    if admin_user:
+        admin_password = _env_value("MYSQL_ADMIN_PASSWORD", "")
+        cmd = ["mysql", "--no-defaults", "-u", admin_user, "-h", host, "-P", port]
+        if admin_password:
+            cmd.append(f"-p{admin_password}")
+        if works(cmd):
+            _root_cmd = cmd
+            ok(f"MySQL admin access via: {admin_user} (from MYSQL_ADMIN_USER)")
+            _confirm_target(cmd)
+            return _root_cmd
+
     if not IS_WINDOWS and which("sudo") and _prime_sudo():
         for cmd in (
             ["sudo", "mysql", "--no-defaults", "-h", host, "-P", port],
@@ -227,6 +246,10 @@ def mysql_root() -> list[str]:
             # connect at all. Allowing defaults is a last resort — the target
             # check below still refuses an unexpected remote server.
             ["sudo", "mysql"],
+            # Debian and Ubuntu ship a maintenance account with full privileges
+            # and its password on disk. It is the way in when root has a
+            # password nobody recorded, which is common on shared machines.
+            ["sudo", "mysql", "--defaults-file=/etc/mysql/debian.cnf"],
         ):
             if works(cmd):
                 _root_cmd = cmd

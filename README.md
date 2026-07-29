@@ -184,7 +184,7 @@ the AI.
 | Symptom | Cause and fix |
 |---|---|
 | `mysql client not found` | MySQL isn't on PATH. Windows: add `C:\Program Files\MySQL\MySQL Server 8.0\bin` |
-| `Could not get administrative access to MySQL` | The server isn't running (`sudo systemctl start mysql`) or the root password was wrong |
+| `Could not reach MySQL as an administrator` | Run `bash scripts/diagnose_mysql.sh`. If it says *Access denied for root*, MySQL's root has a password. Either enter it, or add `MYSQL_ADMIN_USER` / `MYSQL_ADMIN_PASSWORD` to `.env` pointing at any account that can create databases and users |
 | `ABORT: password placeholder not substituted` | A bootstrap `.sql` was run by hand. Use `./setup.sh`, which substitutes it |
 | Chat replies "Hi! I'm Orbis" to every question | `GROQ_API_KEY` is missing or invalid — the real error is in the backend terminal |
 | `employees table is missing [...]` | The table predates this version. Re-run setup to rebuild it |
