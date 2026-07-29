@@ -110,6 +110,20 @@ def _env_value(key: str, default: str) -> str:
     return default
 
 
+def _prime_sudo() -> bool:
+    """Get a sudo session before the silent probes run.
+
+    The probes discard their output so failed attempts do not clutter setup —
+    which would also swallow sudo's own password prompt, leaving the user
+    staring at a hung screen. Asking here keeps the prompt visible.
+    """
+    if subprocess.run(["sudo", "-n", "true"], capture_output=True).returncode == 0:
+        return True  # already authenticated
+    print(f"  {DIM}Administrative access is needed to create the databases.{OFF}")
+    print(f"  {DIM}Enter your computer's login password if prompted.{OFF}")
+    return subprocess.run(["sudo", "-v"]).returncode == 0
+
+
 def _confirm_target(cmd: list[str]) -> None:
     """Show which server is about to be modified, and stop if it is not local.
 
@@ -170,29 +184,37 @@ def mysql_root() -> list[str]:
     # A ~/.my.cnf can silently redirect a bare `mysql` to an entirely different
     # server — a remote one — and the bootstrap scripts are destructive, so the
     # target must never be inherited from client configuration.
-    target = ["-h", _env_value("MYSQL_HOST", "localhost"),
-              "-P", _env_value("MYSQL_PORT", "3306"),
-              "--no-defaults"]
-    candidates = [["mysql", "--no-defaults", "-u", "root",
-                   "-h", _env_value("MYSQL_HOST", "localhost"),
-                   "-P", _env_value("MYSQL_PORT", "3306")]]
-    if not IS_WINDOWS:
-        candidates.append(["sudo", "mysql", "--no-defaults",
-                           "-h", _env_value("MYSQL_HOST", "localhost"),
-                           "-P", _env_value("MYSQL_PORT", "3306")])
-        # Socket auth cannot take -h, so try it last and on its own.
-        candidates.append(["sudo", "mysql", "--no-defaults"])
-    del target
+    host = _env_value("MYSQL_HOST", "localhost")
+    port = _env_value("MYSQL_PORT", "3306")
 
-    for cmd in candidates:
-        if works(cmd):
-            _root_cmd = cmd
-            ok(f"MySQL admin access via: {' '.join(cmd)}")
-            _confirm_target(cmd)
-            return _root_cmd
+    # Without sudo first: on many Linux installs MySQL's root uses socket auth,
+    # which only works as the system root.
+    if works(["mysql", "--no-defaults", "-u", "root", "-h", host, "-P", port]):
+        _root_cmd = ["mysql", "--no-defaults", "-u", "root", "-h", host, "-P", port]
+        ok("MySQL admin access via: mysql -u root")
+        _confirm_target(_root_cmd)
+        return _root_cmd
+
+    if not IS_WINDOWS and which("sudo") and _prime_sudo():
+        for cmd in (
+            ["sudo", "mysql", "--no-defaults", "-h", host, "-P", port],
+            ["sudo", "mysql", "--no-defaults"],  # socket auth takes no -h
+        ):
+            if works(cmd):
+                _root_cmd = cmd
+                ok(f"MySQL admin access via: {' '.join(cmd)}")
+                _confirm_target(cmd)
+                return _root_cmd
 
     # Fall back to prompting for the root password.
-    print(f"  {DIM}MySQL needs an administrative login to create the databases.{OFF}")
+    print()
+    print(f"  {YELLOW}Could not reach MySQL as an administrator automatically.{OFF}")
+    print(f"  {DIM}This is your MySQL server's own root password — the one set when")
+    print(f"  MySQL was installed. It is NOT your computer login, and NOT anything")
+    print(f"  Orbis creates. Leave it blank if MySQL root has no password.{OFF}")
+    print(f"  {DIM}On Linux, Ctrl-C and run 'sudo mysql' to check whether root needs")
+    print(f"  a password at all.{OFF}")
+    print()
     import getpass
 
     for attempt in range(3):
