@@ -1,0 +1,49 @@
+EmployeeID,FullName,Email,Role,Department,Location,DateOfJoining,ManagerID,ManagerName,CasualLeaveBalance,CasualLeaveUsed,SickLeaveBalance,SickLeaveUsed,EarnedLeaveBalance,EarnedLeaveUsed,LastAppraisalDate,NextAppraisalDate,POSHTrainingCompleted,POSHTrainingDate,PerformanceRating,AnnualCTC_INR,EmploymentType,IsAdmin
+EMP1001,Rohit Verma,rohit.verma@orbis.com,HR Manager,HR,Mumbai,2018-03-12,,,9,3,7,3,14,4,2026-01-15,2027-01-15,Yes,2026-02-01,Exceeds Expectations,2200000,Full-Time,Yes
+EMP1002,Priya Sharma,priya.sharma@orbis.com,Software Engineer,Engineering,Bengaluru,2022-07-04,EMP1003,Amit Mehta,6,6,8,2,11,7,2026-01-20,2027-01-20,Yes,2025-11-10,Meets Expectations,1350000,Full-Time,No
+EMP1003,Amit Mehta,amit.mehta@orbis.com,Engineering Manager,Engineering,Pune,2015-02-21,EMP1001,Rohit Verma,6,6,7,3,13,5,2026-01-18,2027-01-18,Yes,2026-01-05,Meets Expectations,1691161,Full-Time,No
+EMP1004,Tanvi Menon,tanvi.menon@orbis.com,Account Manager,Sales,Hyderabad,2015-03-07,EMP1001,Rohit Verma,10,2,9,1,13,5,2026-01-18,2027-01-18,Yes,2026-01-05,Meets Expectations,2281453,Full-Time,No
+EMP1005,Deepak Desai,deepak.desai@orbis.com,HR Manager,HR,Gurgaon,2017-05-09,EMP1001,Rohit Verma,7,5,3,7,7,11,2026-01-18,2027-01-18,Yes,2026-01-05,Exceeds Expectations,2332052,Full-Time,No
+EMP1006,Rahul Malhotra,rahul.malhotra@orbis.com,Finance Manager,Finance,Chennai,2016-07-23,EMP1001,Rohit Verma,8,4,7,3,4,14,2026-01-18,2027-01-18,Yes,,Exceeds Expectations,1976417,Full-Time,No
+EMP1007,Varun Chatterjee,varun.chatterjee@orbis.com,Marketing Manager,Marketing,Remote,2018-05-21,EMP1001,Rohit Verma,6,6,10,0,5,13,2026-01-18,2027-01-18,Yes,2026-01-05,Meets Expectations,1682627,Full-Time,No
+EMP1008,Nikhil Kapoor,nikhil.kapoor@orbis.com,Operations Manager,Operations,Hyderabad,2019-08-26,EMP1001,Rohit Verma,1,11,5,5,7,11,2026-01-18,2027-01-18,Yes,,Exceeds Expectations,2410620,Full-Time,No
+EMP1009,Arjun Iyer,arjun.iyer@orbis.com,Compliance Officer,Legal,Gurgaon,2019-10-18,EMP1001,Rohit Verma,7,5,9,1,10,8,2026-01-18,2027-01-18,No,2026-01-05,Meets Expectations,1770555,Full-Time,No
+EMP1010,Sanjay Chatterjee,sanjay.chatterjee@orbis.com,Support Team Lead,Customer Support,Pune,2016-03-05,EMP1001,Rohit Verma,6,6,9,1,7,11,2026-01-18,2027-01-18,Yes,2026-01-05,Meets Expectations,1883060,Full-Time,No
+EMP1011,Nandini Sharma,nandini.sharma@orbis.com,Accounts Executive,Finance,Mumbai,2021-07-27,EMP1006,Rahul Malhotra,12,0,5,5,6,12,2026-01-15,2027-01-15,Yes,2026-01-10,Meets Expectations,1789462,Full-Time,No
+EMP1012,Pooja Pillai,pooja.pillai@orbis.com,Accounts Executive,Finance,Noida,2020-08-08,EMP1006,Rahul Malhotra,8,4,8,2,11,7,2026-01-15,2027-01-15,Yes,2026-01-10,Needs Improvement,1359161,Full-Time,No
+EMP1013,Aditi Sharma,aditi.sharma@orbis.com,HR Business Partner,HR,Mumbai,2020-03-25,EMP1005,Deepak Desai,10,2,0,10,13,5,2026-01-15,2027-01-15,No,,Needs Improvement,1400313,Contract,No
+EMP1014,Sonal Mehta,sonal.mehta@orbis.com,Marketing Executive,Marketing,Gurgaon,2025-01-08,EMP1007,Varun Chatterjee,0,12,6,4,8,10,2026-01-15,2027-01-15,Yes,2026-01-10,Needs Improvement,931680,Contract,No
+EMP1015,Simran Rao,simran.rao@orbis.com,QA Engineer,Engineering,Gurgaon,2024-08-12,EMP1003,Amit Mehta,0,12,8,2,2,16,2026-01-15,2027-01-15,Yes,2026-01-10,Meets Expectations,920527,Full-Time,No
+EMP1016,Ritu Malhotra,ritu.malhotra@orbis.com,HR Executive,HR,Hyderabad,2024-06-24,EMP1005,Deepak Desai,12,0,9,1,7,11,2026-01-15,2027-01-15,Yes,2026-01-10,Exceeds Expectations,1105144,Full-Time,No
+EMP1017,Nandini Iyer,nandini.iyer@orbis.com,Sales Executive,Sales,Pune,2024-12-21,EMP1004,Tanvi Menon,0,12,8,2,14,4,2026-01-15,2027-01-15,No,,Meets Expectations,1706612,Contract,No
+EMP1018,Deepak Kapoor,deepak.kapoor@orbis.com,Financial Analyst,Finance,Remote,2023-06-23,EMP1006,Rahul Malhotra,2,10,0,10,7,11,2026-01-15,2027-01-15,No,,Exceeds Expectations,1119895,Full-Time,No
+EMP1019,Rohit Bhatia,rohit.bhatia@orbis.com,Sales Executive,Sales,Mumbai,2025-03-18,EMP1004,Tanvi Menon,9,3,1,9,11,7,2026-01-15,2027-01-15,Yes,2026-01-10,Exceeds Expectations,1080125,Full-Time,No
+EMP1020,Aditi Joshi,aditi.joshi@orbis.com,Senior Engineer,Engineering,Pune,2021-09-01,EMP1003,Amit Mehta,8,4,0,10,3,15,2026-01-15,2027-01-15,Yes,2026-01-10,Needs Improvement,1109602,Contract,No
+EMP1021,Karan Mehta,karan.mehta@orbis.com,Legal Associate,Legal,Remote,2026-05-23,EMP1009,Arjun Iyer,6,6,5,5,5,13,2026-01-15,2027-01-15,No,,Exceeds Expectations,806397,Full-Time,No
+EMP1022,Yash Mehta,yash.mehta@orbis.com,Compliance Officer,Legal,Pune,2021-10-15,EMP1009,Arjun Iyer,9,3,7,3,1,17,2026-01-15,2027-01-15,No,,Needs Improvement,984802,Full-Time,No
+EMP1023,Varun Iyer,varun.iyer@orbis.com,Support Associate,Customer Support,Bengaluru,2023-12-21,EMP1010,Sanjay Chatterjee,0,12,2,8,15,3,2026-01-15,2027-01-15,Yes,2026-01-10,Exceeds Expectations,1095723,Full-Time,No
+EMP1024,Manish Reddy,manish.reddy@orbis.com,Compliance Officer,Legal,Noida,2023-07-01,EMP1009,Arjun Iyer,12,0,8,2,6,12,2026-01-15,2027-01-15,Yes,2026-01-10,Meets Expectations,1554221,Full-Time,No
+EMP1025,Neha Reddy,neha.reddy@orbis.com,Compliance Officer,Legal,Chennai,2022-04-30,EMP1009,Arjun Iyer,9,3,10,0,0,18,2026-01-15,2027-01-15,Yes,2026-01-10,Exceeds Expectations,705156,Contract,No
+EMP1026,Shreya Iyer,shreya.iyer@orbis.com,HR Executive,HR,Noida,2021-01-31,EMP1005,Deepak Desai,11,1,1,9,16,2,2026-01-15,2027-01-15,Yes,2026-01-10,Exceeds Expectations,1794695,Full-Time,No
+EMP1027,Aditi Menon,aditi.menon@orbis.com,QA Engineer,Engineering,Gurgaon,2026-05-16,EMP1003,Amit Mehta,3,9,1,9,2,16,2026-01-15,2027-01-15,Yes,2026-01-10,Meets Expectations,1258891,Full-Time,No
+EMP1028,Neha Kapoor,neha.kapoor@orbis.com,Content Specialist,Marketing,Mumbai,2024-02-16,EMP1007,Varun Chatterjee,7,5,9,1,18,0,2026-01-15,2027-01-15,No,,Exceeds Expectations,1727501,Full-Time,No
+EMP1029,Aakash Chatterjee,aakash.chatterjee@orbis.com,Marketing Executive,Marketing,Remote,2019-10-09,EMP1007,Varun Chatterjee,9,3,5,5,9,9,2026-01-15,2027-01-15,Yes,2026-01-10,Meets Expectations,1709269,Full-Time,No
+EMP1030,Simran Patel,simran.patel@orbis.com,Marketing Executive,Marketing,Gurgaon,2021-12-19,EMP1007,Varun Chatterjee,11,1,9,1,1,17,2026-01-15,2027-01-15,Yes,2026-01-10,Meets Expectations,1041722,Full-Time,No
+EMP1031,Shreya Kulkarni,shreya.kulkarni@orbis.com,Accounts Executive,Finance,Bengaluru,2021-10-25,EMP1006,Rahul Malhotra,12,0,9,1,5,13,2026-01-15,2027-01-15,Yes,2026-01-10,Exceeds Expectations,1299518,Full-Time,No
+EMP1032,Ishaan Pillai,ishaan.pillai@orbis.com,Marketing Executive,Marketing,Mumbai,2025-03-09,EMP1007,Varun Chatterjee,1,11,4,6,1,17,2026-01-15,2027-01-15,Yes,2026-01-10,Exceeds Expectations,912589,Full-Time,No
+EMP1033,Rahul Patel,rahul.patel@orbis.com,Operations Executive,Operations,Hyderabad,2019-06-21,EMP1008,Nikhil Kapoor,8,4,5,5,17,1,2026-01-15,2027-01-15,Yes,2026-01-10,Meets Expectations,815573,Full-Time,No
+EMP1034,Aakash Gupta,aakash.gupta@orbis.com,Legal Associate,Legal,Pune,2020-10-27,EMP1009,Arjun Iyer,0,12,8,2,5,13,2026-01-15,2027-01-15,Yes,2026-01-10,Meets Expectations,1463425,Full-Time,No
+EMP1035,Pooja Sharma,pooja.sharma@orbis.com,Marketing Executive,Marketing,Gurgaon,2024-04-11,EMP1007,Varun Chatterjee,9,3,7,3,4,14,2026-01-15,2027-01-15,Yes,2026-01-10,Meets Expectations,1067504,Full-Time,No
+EMP1036,Meera Rao,meera.rao@orbis.com,Accounts Executive,Finance,Chennai,2019-10-12,EMP1006,Rahul Malhotra,0,12,6,4,7,11,2026-01-15,2027-01-15,No,,Exceeds Expectations,841889,Full-Time,No
+EMP1037,Priya Mehta,priya.mehta@orbis.com,HR Business Partner,HR,Mumbai,2025-09-09,EMP1005,Deepak Desai,6,6,5,5,8,10,2026-01-15,2027-01-15,No,,Needs Improvement,998624,Full-Time,No
+EMP1038,Rahul Verma,rahul.verma@orbis.com,QA Engineer,Engineering,Noida,2024-10-30,EMP1003,Amit Mehta,0,12,2,8,12,6,2026-01-15,2027-01-15,Yes,2026-01-10,Exceeds Expectations,1292479,Full-Time,No
+EMP1039,Shreya Kapoor,shreya.kapoor@orbis.com,Sales Executive,Sales,Pune,2026-06-24,EMP1004,Tanvi Menon,6,6,5,5,6,12,2026-01-15,2027-01-15,Yes,2026-01-10,Meets Expectations,1481739,Contract,No
+EMP1040,Pooja Desai,pooja.desai@orbis.com,HR Business Partner,HR,Chennai,2019-01-02,EMP1005,Deepak Desai,8,4,6,4,12,6,2026-01-15,2027-01-15,No,,Needs Improvement,1526492,Contract,No
+EMP1041,Yash Nair,yash.nair@orbis.com,Accounts Executive,Finance,Mumbai,2026-05-22,EMP1006,Rahul Malhotra,11,1,6,4,2,16,2026-01-15,2027-01-15,Yes,2026-01-10,Meets Expectations,1250996,Full-Time,No
+EMP1042,Rohit Sharma,rohit.sharma@orbis.com,Financial Analyst,Finance,Noida,2021-09-29,EMP1006,Rahul Malhotra,5,7,1,9,16,2,2026-01-15,2027-01-15,No,,Meets Expectations,1405261,Contract,No
+EMP1043,Neha Verma,neha.verma@orbis.com,Legal Associate,Legal,Remote,2020-03-12,EMP1009,Arjun Iyer,0,12,4,6,11,7,2026-01-15,2027-01-15,Yes,2026-01-10,Exceeds Expectations,1768964,Full-Time,No
+EMP1044,Neha Pillai,neha.pillai@orbis.com,Sales Executive,Sales,Noida,2026-06-27,EMP1004,Tanvi Menon,4,8,2,8,8,10,2026-01-15,2027-01-15,No,,Needs Improvement,933778,Contract,No
+EMP1045,Radhika Gupta,radhika.gupta@orbis.com,Support Team Lead,Customer Support,Gurgaon,2026-02-24,EMP1010,Sanjay Chatterjee,8,4,2,8,3,15,2026-01-15,2027-01-15,Yes,2026-01-10,Needs Improvement,762494,Full-Time,No
+EMP1046,Meera Malhotra,meera.malhotra@orbis.com,Accounts Executive,Finance,Noida,2025-01-21,EMP1006,Rahul Malhotra,11,1,8,2,14,4,2026-01-15,2027-01-15,Yes,2026-01-10,Meets Expectations,1048691,Full-Time,No
+EMP1047,Meera Desai,meera.desai@orbis.com,Compliance Officer,Legal,Noida,2024-03-23,EMP1009,Arjun Iyer,6,6,10,0,12,6,2026-01-15,2027-01-15,No,,Exceeds Expectations,1397716,Contract,No
+EMP1048,Arjun Bose,arjun.bose@orbis.com,Senior Engineer,Engineering,Hyderabad,2023-09-13,EMP1003,Amit Mehta,4,8,2,8,11,7,2026-01-15,2027-01-15,No,,Meets Expectations,1514014,Contract,No

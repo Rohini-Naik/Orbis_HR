@@ -1,7 +1,7 @@
 """Audit log endpoints (admin only)."""
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 
 from app.auth import require_admin
 from app.schemas import AuditEntry, AuditStats
@@ -12,7 +12,8 @@ router = APIRouter(prefix="/audit", tags=["audit"])
 
 @router.get("", response_model=List[AuditEntry])
 def list_audit(
-    limit: int = 200, admin: Dict[str, Any] = Depends(require_admin)
+    limit: int = Query(200, ge=1, le=1000),
+    admin: Dict[str, Any] = Depends(require_admin),
 ) -> List[Dict[str, Any]]:
     return audit_service.list_entries(limit=limit)
 

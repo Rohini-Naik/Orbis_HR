@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { FolderOpen, MessageSquare, ScrollText, UserPlus } from 'lucide-react'
+import { FolderOpen, MessageSquare, ScrollText, ShieldCheck, UserPlus } from 'lucide-react'
 import { TopNav } from '../components/TopNav'
 import { ChatView } from '../features/chat/ChatView'
 import { PolicyLibrary } from '../features/policies/PolicyLibrary'
 import { AuditLog } from '../features/audit/AuditLog'
 import { EmployeeManager } from '../features/employees/EmployeeManager'
+import { UserAdmin } from '../features/users/UserAdmin'
 
-type Tab = 'chat' | 'policies' | 'audit' | 'employees'
+type Tab = 'chat' | 'policies' | 'audit' | 'employees' | 'users'
 
 export function AdminApp() {
   const [tab, setTab] = useState<Tab>('chat')
@@ -27,12 +28,16 @@ export function AdminApp() {
         <button className={`tab-btn ${tab === 'employees' ? 'active' : ''}`} onClick={() => setTab('employees')}>
           <UserPlus size={15} /> Employees
         </button>
+        <button className={`tab-btn ${tab === 'users' ? 'active' : ''}`} onClick={() => setTab('users')}>
+          <ShieldCheck size={15} /> Users &amp; Access
+        </button>
       </div>
 
       {tab === 'chat' && <ChatView variant="admin" />}
       {tab === 'policies' && <PolicyLibrary />}
       {tab === 'audit' && <AuditLog />}
       {tab === 'employees' && <EmployeeManager />}
+      {tab === 'users' && <UserAdmin />}
     </div>
   )
 }

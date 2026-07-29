@@ -29,9 +29,16 @@ def index_policy_documents(reset: bool = True) -> dict:
 
 
 def index_file(file_path: Path) -> int:
-    """Incrementally index a single newly-uploaded file (no full reset)."""
-    chunks = chunk_documents(load_document(Path(file_path)))
-    return _embed_and_upsert(chunks)
+    """Index a single uploaded file, replacing any earlier version of it.
+
+    Chunk ids are derived from the text, so a revised document produces new ids
+    and `upsert` alone would leave the previous version's chunks in the index —
+    the assistant would then cite a superseded policy alongside the current one.
+    Clearing by source first makes re-uploading a genuine replacement.
+    """
+    path = Path(file_path)
+    delete_by_source(path.name)
+    return _embed_and_upsert(chunk_documents(load_document(path)))
 
 
 def delete_file(source: str) -> None:

@@ -48,6 +48,7 @@ def upsert_chunks(
                 "source": chunk["source"],
                 "page": chunk["page"],
                 "category": chunk["category"],
+                "company": chunk.get("company", ""),
                 "chunk_index": chunk["chunk_index"],
             }
             for chunk in chunks
@@ -78,11 +79,19 @@ def search_chunks(
 ) -> list[dict]:
     collection = get_policy_collection()
 
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=top_k,
-        include=["documents", "metadatas", "distances"],
-    )
+    try:
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=top_k,
+            include=["documents", "metadatas", "distances"],
+        )
+    except Exception as exc:
+        # Most often a dimension mismatch: the embedding model changed but the
+        # index was not rebuilt. Say so instead of surfacing the raw error.
+        raise RuntimeError(
+            f"Policy search failed: {exc}. If EMBEDDING_MODEL_NAME changed, "
+            "re-index with: python -m rag_engine.maintenance"
+        ) from exc
 
     documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
@@ -104,6 +113,7 @@ def search_chunks(
                 "source": metadata.get("source"),
                 "page": metadata.get("page"),
                 "category": metadata.get("category"),
+                "company": metadata.get("company"),
                 "distance": distance,
                 "score": round(1 - distance, 4),
             }

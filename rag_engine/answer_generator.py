@@ -1,6 +1,7 @@
 """RAG answer generation: retrieve policy chunks, then ask a hosted LLM to
 answer using only that context, with inline citations and conversation memory.
 """
+import re
 from typing import Any, Dict, List, Optional
 
 from rag_engine import settings
@@ -26,6 +27,14 @@ def build_context(matches: List[Dict[str, Any]]) -> str:
     return "\n\n".join(parts)
 
 
+def _cited_only(answer: str, sources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Keep only the retrieved chunks the answer actually cited, so a citation
+    list means "this is what the answer rests on". Falls back to the full set
+    when the model cited nothing, rather than showing no provenance at all."""
+    cited = {int(n) for n in re.findall(r"\[(\d+)\]", answer)}
+    return [s for s in sources if s["idx"] in cited] or sources
+
+
 def _format_history(history: Optional[List[Dict[str, str]]]) -> str:
     if not history:
         return ""
@@ -43,13 +52,14 @@ def answer_question(
     prompt = PROMPT_TEMPLATE.format(
         history=_format_history(history), context=context, question=question
     )
-    answer = chat(prompt, model=settings.HF_ANSWER_MODEL)
+    answer = chat(prompt, model=settings.ANSWER_MODEL)
     sources = [
         {
             "idx": i,
             "source": m.get("source"),
             "page": m.get("page"),
             "section": m.get("category"),
+            "company": m.get("company"),
             "score": m.get("score"),
         }
         for i, m in enumerate(matches, start=1)
@@ -58,7 +68,8 @@ def answer_question(
     return {
         "question": question,
         "answer": answer,
-        "sources": sources,
+        "sources": _cited_only(answer, sources),
+        # Verification runs against everything retrieved, not just what was cited.
         "context": context,
         "retrieval_confidence": retrieval_confidence,
     }

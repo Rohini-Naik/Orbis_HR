@@ -13,7 +13,7 @@ export interface UserProfile {
   email: string
   full_name: string
   role: Role
-  employee_id: number | null
+  employee_id: string | null
   department: string | null
 }
 
@@ -22,6 +22,7 @@ export interface Source {
   source: string | null
   page: number | null
   section: string | null
+  company: string | null
   score: number | null
 }
 
@@ -93,12 +94,30 @@ export interface AuditStats {
 }
 
 export interface Employee {
-  EmployeeID: number
-  EmployeeName: string
+  EmployeeID: string
+  FullName: string
+  Email?: string | null
+  Status?: string
   [key: string]: unknown
 }
 
 export interface EmployeeListResponse {
   total: number
   employees: Employee[]
+}
+
+export interface InvitePreview {
+  company_email: string
+  full_name: string
+}
+
+export interface UserSummary {
+  id: number
+  email: string
+  full_name: string
+  role: Role
+  employee_id: string | null
+  department: string | null
+  is_active: boolean
+  created_at: string
 }

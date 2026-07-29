@@ -2,19 +2,14 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { api, clearToken, getToken, setToken } from '../api/client'
 import type { TokenResponse, UserProfile } from '../api/types'
 
-interface SignupPayload {
-  email: string
-  password: string
-  full_name: string
-  employee_id?: number | null
-  department?: string | null
-}
-
 interface AuthState {
   user: UserProfile | null
   loading: boolean
   login: (email: string, password: string) => Promise<UserProfile>
-  signup: (payload: SignupPayload) => Promise<UserProfile>
+  /** Self-registration for staff already on the HR system. Identity is derived
+   *  server-side from the company email — nothing else is sent. */
+  signup: (email: string, password: string) => Promise<UserProfile>
+  acceptInvite: (token: string, password: string) => Promise<UserProfile>
   logout: () => void
 }
 
@@ -48,18 +43,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return afterAuth(res.data.access_token)
   }
 
-  async function signup(payload: SignupPayload) {
-    const res = await api.post<TokenResponse>('/auth/signup', payload)
+  async function signup(email: string, password: string) {
+    const res = await api.post<TokenResponse>('/auth/signup', { email, password })
+    return afterAuth(res.data.access_token)
+  }
+
+  async function acceptInvite(token: string, password: string) {
+    const res = await api.post<TokenResponse>('/auth/invite/accept', { token, password })
     return afterAuth(res.data.access_token)
   }
 
   function logout() {
+    // Send the token explicitly: it is cleared before the interceptor would run.
+    const token = getToken()
     clearToken()
     setUser(null)
+    if (token) {
+      api.post('/auth/logout', null, { headers: { Authorization: `Bearer ${token}` } })
+        .catch(() => {})
+    }
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, acceptInvite, logout }}>
       {children}
     </AuthContext.Provider>
   )

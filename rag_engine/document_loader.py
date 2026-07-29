@@ -8,6 +8,34 @@ from rag_engine.config import POLICY_DOCUMENTS_DIR
 
 SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt"}
 
+# The bundled corpus is a set of publicly published policies from several real
+# organisations, used as sample HR content. Attributing each document to its
+# issuer keeps citations honest — a reader can see the answer came from, say,
+# Bandhan's manual rather than from the demo employer's own handbook.
+_COMPANY_KEYWORDS = (
+    ("orbis", "Orbis"),
+    ("bandhan", "Bandhan Financial Services"),
+    ("ppl_", "Piramal Pharma"),
+    ("pel ", "Piramal Enterprises"),
+    ("pel-", "Piramal Enterprises"),
+    ("pchfl", "Piramal Capital & Housing Finance"),
+    ("smp", "Piramal Capital & Housing Finance"),
+    ("posh", "Piramal Capital & Housing Finance"),
+    ("remuneration-policy-new", "Piramal Housing Finance"),
+)
+
+UNKNOWN_COMPANY = "Unattributed"
+
+
+def infer_company(file_name: str) -> str:
+    """Best-effort issuer for a policy file, shown alongside citations.
+    Uploaded files that match nothing are simply left unattributed."""
+    name = file_name.lower()
+    for keyword, company in _COMPANY_KEYWORDS:
+        if keyword in name:
+            return company
+    return UNKNOWN_COMPANY
+
 
 def infer_category(file_name: str) -> str:
     """Classify a policy file into the categories the UI filters by:
@@ -23,7 +51,9 @@ def infer_category(file_name: str) -> str:
         return "Benefits"
     if any(k in name for k in ("privacy", "confidential", "data", "diba")):
         return "Privacy"
-    if any(k in name for k in ("work", "hybrid", "remote", "wfh")):
+    if any(k in name for k in ("work", "hybrid", "remote", "wfh", "lifecycle",
+                               "probation", "notice", "exit", "resignation",
+                               "onboarding", "attendance")):
         return "Work"
     return "General"
 
@@ -37,6 +67,7 @@ def load_txt(file_path: Path) -> list[dict]:
             "source": file_path.name,
             "page": 1,
             "category": infer_category(file_path.name),
+            "company": infer_company(file_path.name),
         }
     ]
 
@@ -58,6 +89,7 @@ def load_pdf(file_path: Path) -> list[dict]:
                 "source": file_path.name,
                 "page": page_number,
                 "category": infer_category(file_path.name),
+                "company": infer_company(file_path.name),
             }
         )
 
@@ -75,6 +107,7 @@ def load_docx(file_path: Path) -> list[dict]:
             "source": file_path.name,
             "page": 1,
             "category": infer_category(file_path.name),
+            "company": infer_company(file_path.name),
         }
     ]
 

@@ -2,24 +2,35 @@
 `employees` table via a dedicated read-write connection. The NL->SQL engine
 keeps using the read-only user, so this write access never reaches the LLM path.
 """
+import logging
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional
 
 import mysql.connector
 from fastapi import HTTPException, status
 
+from app.auth import revoke_user_sessions
+from app.db import execute, query_one
 from app.services import audit_service
+from app.services.identity import generate_email
 from rag_engine import settings
 
 COLUMNS = [
-    "EmployeeID", "EmployeeName", "Age", "Gender", "Location", "Department",
-    "Role", "YearsAtCompany", "DateOfJoining", "YearsInCurrentRole",
-    "EducationLevel", "MonthlySalaryINR", "WorkHoursPerWeek", "ProjectsHandled",
-    "TrainingHoursLastYear", "SickLeavesLastYear", "OvertimeHoursLastMonth",
-    "ManagerRating", "DisciplinaryNotices", "PolicyViolationsLastYear",
-    "PerformanceRating", "PromotionLast2Years", "ComplianceRiskLevel",
-    "AttritionRisk",
+    "EmployeeID", "FullName", "Email", "PersonalEmail", "Role", "Department",
+    "Location", "DateOfJoining", "ManagerID", "ManagerName",
+    "CasualLeaveBalance", "CasualLeaveUsed", "SickLeaveBalance", "SickLeaveUsed",
+    "EarnedLeaveBalance", "EarnedLeaveUsed", "LastAppraisalDate",
+    "NextAppraisalDate", "POSHTrainingCompleted", "POSHTrainingDate",
+    "PerformanceRating", "AnnualCTC_INR", "EmploymentType", "IsAdmin", "Status",
 ]
+
+# `Email` is minted by the server and `Status` is managed by the lifecycle
+# helpers, so neither is accepted from a request body. `IsAdmin` is HR reference
+# data only — application permissions live on the users table, granted through
+# "Users & Access", never by editing an employee record.
+SERVER_MANAGED = {"Email", "Status", "IsAdmin"}
+
+logger = logging.getLogger("orbis.employees")
 
 
 @contextmanager
@@ -32,31 +43,93 @@ def _conn() -> Iterator[mysql.connector.MySQLConnection]:
         conn.close()
 
 
+ID_PREFIX = "EMP"
+
+
+def _next_employee_id(cur) -> str:
+    """Allocate the next 'EMP####' id.
+
+    IDs are never reused — including ones freed by an exit — because a recycled
+    id would silently hand a departed colleague's account access to whoever
+    inherits the number. MAX() over every row, exited included, guarantees that.
+    """
+    cur.execute(
+        "SELECT COALESCE(MAX(CAST(SUBSTRING(EmployeeID, %s) AS UNSIGNED)), 1000) "
+        "FROM employees WHERE EmployeeID LIKE %s",
+        (len(ID_PREFIX) + 1, f"{ID_PREFIX}%"),
+    )
+    return f"{ID_PREFIX}{cur.fetchone()[0] + 1}"
+
+
 def create(data: Dict[str, Any], admin: Dict[str, Any]) -> Dict[str, Any]:
-    cols = [c for c in COLUMNS if c in data]
-    placeholders = ", ".join(["%s"] * len(cols))
-    values = [data[c] for c in cols]
-    with _conn() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT 1 FROM employees WHERE EmployeeID = %s", (data["EmployeeID"],))
-        if cur.fetchone():
-            raise HTTPException(status.HTTP_409_CONFLICT, "EmployeeID already exists")
-        try:
+    """Add a new hire: allocate an ID, mint their company address, and invite
+    them to set a password via their personal inbox."""
+    payload = {k: v for k, v in data.items() if k not in SERVER_MANAGED}
+    personal_email = payload.get("PersonalEmail")
+
+    # Every statement here is covered: an id lookup or the uniqueness probe can
+    # fail just as the insert can, and an escaping driver error would reach the
+    # browser as an opaque network failure rather than a usable message.
+    try:
+        with _conn() as conn:
+            cur = conn.cursor()
+            if payload.get("EmployeeID"):
+                cur.execute("SELECT 1 FROM employees WHERE EmployeeID = %s",
+                            (payload["EmployeeID"],))
+                if cur.fetchone():
+                    raise HTTPException(status.HTTP_409_CONFLICT, "EmployeeID already exists")
+            else:
+                payload["EmployeeID"] = _next_employee_id(cur)
+
+            def taken(candidate: str) -> bool:
+                cur.execute("SELECT 1 FROM employees WHERE Email = %s", (candidate,))
+                return cur.fetchone() is not None
+
+            payload["Email"] = generate_email(payload.get("FullName", ""), is_taken=taken)
+            payload["Status"] = "active"
+
+            cols = [c for c in COLUMNS if c in payload]
             cur.execute(
-                f"INSERT INTO employees ({', '.join(cols)}) VALUES ({placeholders})", values
+                f"INSERT INTO employees ({', '.join(cols)}) "
+                f"VALUES ({', '.join(['%s'] * len(cols))})",
+                [payload[c] for c in cols],
             )
-        except mysql.connector.Error as exc:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
-        cur.close()
-    audit_service.log_event("employee", user=admin, question=f"Added employee {data['EmployeeID']}")
-    return get(data["EmployeeID"])
+            cur.close()
+    except mysql.connector.Error as exc:
+        # Never surface the driver's message: it leaks schema details.
+        logger.exception("Employee create failed")
+        detail = "Could not create the employee record. Please check the submitted values."
+        if exc.errno == 1054:  # unknown column — the HR table predates this build
+            detail = ("The employee table is out of date. Re-run setup to apply the "
+                      "current schema.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail)
+
+    from app.services import onboarding_service  # local import avoids a cycle
+
+    onboarding_service.issue_invite(
+        payload["EmployeeID"], payload["Email"],
+        payload.get("FullName", ""), personal_email,
+    )
+    audit_service.log_event(
+        "employee", user=admin,
+        question=f"Added employee {payload['EmployeeID']} ({payload['Email']})",
+    )
+    return get(payload["EmployeeID"])
 
 
-def list_employees(search: Optional[str] = None, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
-    where, params = "", []
+def list_employees(
+    search: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    include_exited: bool = False,
+) -> Dict[str, Any]:
+    clauses, params = [], []
+    if not include_exited:
+        clauses.append("Status = 'active'")
     if search:
-        where = "WHERE EmployeeName LIKE %s OR Department LIKE %s OR Role LIKE %s"
-        params = [f"%{search}%"] * 3
+        clauses.append("(FullName LIKE %s OR Department LIKE %s OR Role LIKE %s OR Email LIKE %s)")
+        params += [f"%{search}%"] * 4
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     with _conn() as conn:
         cur = conn.cursor(dictionary=True)
         cur.execute(f"SELECT COUNT(*) AS n FROM employees {where}", params)
@@ -70,7 +143,7 @@ def list_employees(search: Optional[str] = None, limit: int = 50, offset: int = 
     return {"total": total, "employees": rows}
 
 
-def get(employee_id: int) -> Dict[str, Any]:
+def get(employee_id: str) -> Dict[str, Any]:
     with _conn() as conn:
         cur = conn.cursor(dictionary=True)
         cur.execute("SELECT * FROM employees WHERE EmployeeID = %s", (employee_id,))
@@ -81,7 +154,8 @@ def get(employee_id: int) -> Dict[str, Any]:
     return row
 
 
-def update(employee_id: int, data: Dict[str, Any], admin: Dict[str, Any]) -> Dict[str, Any]:
+def update(employee_id: str, data: Dict[str, Any], admin: Dict[str, Any]) -> Dict[str, Any]:
+    data = {k: v for k, v in data.items() if k not in SERVER_MANAGED}
     fields = [c for c in COLUMNS if c in data and c != "EmployeeID"]
     if not fields:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "No fields to update")
@@ -98,12 +172,48 @@ def update(employee_id: int, data: Dict[str, Any], admin: Dict[str, Any]) -> Dic
     return get(employee_id)
 
 
-def delete(employee_id: int, admin: Dict[str, Any]) -> None:
+def delete(employee_id: str, admin: Dict[str, Any]) -> None:
+    """Mark an employee as exited.
+
+    Records are never removed: the audit trail references them, and a deleted
+    row whose ID was later reissued would give the new holder access to the
+    previous employee's account. Deactivating the linked login and dropping its
+    sessions ends access immediately.
+    """
     with _conn() as conn:
         cur = conn.cursor()
-        cur.execute("DELETE FROM employees WHERE EmployeeID = %s", (employee_id,))
+        cur.execute(
+            "UPDATE employees SET Status = 'exited' WHERE EmployeeID = %s AND Status <> 'exited'",
+            (employee_id,),
+        )
+        affected = cur.rowcount
+        cur.close()
+    if affected == 0:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Employee not found or already exited")
+
+    linked = query_one("SELECT id FROM users WHERE employee_id = %s", (employee_id,))
+    if linked:
+        execute("UPDATE users SET is_active = 0 WHERE id = %s", (linked["id"],))
+        revoke_user_sessions(linked["id"])
+    execute("UPDATE invites SET used_at = NOW() WHERE employee_id = %s AND used_at IS NULL",
+            (employee_id,))
+    audit_service.log_event(
+        "employee", user=admin,
+        question=f"Marked employee {employee_id} as exited and revoked access",
+    )
+
+
+def reinstate(employee_id: str, admin: Dict[str, Any]) -> Dict[str, Any]:
+    """Undo an exit — the counterpart that hard deletion could never offer."""
+    with _conn() as conn:
+        cur = conn.cursor()
+        cur.execute("UPDATE employees SET Status = 'active' WHERE EmployeeID = %s", (employee_id,))
         affected = cur.rowcount
         cur.close()
     if affected == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Employee not found")
-    audit_service.log_event("employee", user=admin, question=f"Deleted employee {employee_id}")
+    linked = query_one("SELECT id FROM users WHERE employee_id = %s", (employee_id,))
+    if linked:
+        execute("UPDATE users SET is_active = 1 WHERE id = %s", (linked["id"],))
+    audit_service.log_event("employee", user=admin, question=f"Reinstated employee {employee_id}")
+    return get(employee_id)

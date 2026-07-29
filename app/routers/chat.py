@@ -1,7 +1,9 @@
 """Chatbot endpoints: ask questions, browse conversation history, suggestions."""
-from typing import Any, Dict, List
+import time
+from collections import defaultdict, deque
+from typing import Any, Deque, Dict, List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth import get_current_user
 from app.schemas import (
@@ -23,15 +25,36 @@ SUGGESTED = {
     ],
     "admin": [
         "How many employees have pending POSH training?",
-        "Which department has the highest leave utilization?",
-        "What does the code of conduct policy say about gifts?",
-        "How many employees are in the Sales department?",
+        "How many employees are in each department?",
+        "What does the code of conduct say about gifts?",
+        "Who has not completed POSH training?",
     ],
 }
 
 
+# Each question costs several LLM calls, so cap how fast one account can spend
+# them. In-process and per-user; ample for interactive use.
+RATE_LIMIT = 30
+RATE_WINDOW_S = 60
+_recent: Dict[int, Deque[float]] = defaultdict(deque)
+
+
+def _check_rate_limit(user_id: int) -> None:
+    now = time.monotonic()
+    hits = _recent[user_id]
+    while hits and now - hits[0] > RATE_WINDOW_S:
+        hits.popleft()
+    if len(hits) >= RATE_LIMIT:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many questions in a short time — please wait a moment.",
+        )
+    hits.append(now)
+
+
 @router.post("", response_model=ChatResponse)
 def chat(body: ChatRequest, user: Dict[str, Any] = Depends(get_current_user)) -> ChatResponse:
+    _check_rate_limit(user["id"])
     return ChatResponse(**chat_service.handle_chat(user, body.question, body.conversation_id))
 
 

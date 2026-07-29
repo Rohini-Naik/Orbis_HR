@@ -17,13 +17,19 @@ VERIFY_PROMPT = (
 
 
 def verify_answer(answer: str, context: str) -> Dict[str, Any]:
-    """Return {grounded: bool, confidence: float}. Fails open (grounded, 0.0)
-    if the verifier model is unreachable, so the API stays usable."""
+    """Return {grounded: bool, confidence: float, available: bool}.
+
+    Fails *closed*: if the checker is unreachable we cannot claim the answer is
+    grounded, so the caller withholds it rather than presenting an unverified
+    answer under a "verified" badge. `available` distinguishes "the checker ran
+    and rejected this" from "the checker could not run" — they look the same to
+    the user but must not be treated alike in the audit trail.
+    """
     try:
         verdict = chat(
             VERIFY_PROMPT.format(context=context, answer=answer),
-            model=settings.HF_ANSWER_MODEL,
-            max_tokens=16,
+            model=settings.ANSWER_MODEL,
+            max_tokens=64,  # room for a reasoning model to think before answering
         )
         label, _, score = verdict.strip().partition("|")
         grounded = label.strip().upper().startswith("GROUNDED")
@@ -31,6 +37,6 @@ def verify_answer(answer: str, context: str) -> Dict[str, Any]:
             confidence = max(0.0, min(1.0, float(score.strip())))
         except ValueError:
             confidence = 1.0 if grounded else 0.0
-        return {"grounded": grounded, "confidence": round(confidence, 3)}
+        return {"grounded": grounded, "confidence": round(confidence, 3), "available": True}
     except Exception:
-        return {"grounded": True, "confidence": 0.0}
+        return {"grounded": False, "confidence": 0.0, "available": False}

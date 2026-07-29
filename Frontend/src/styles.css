@@ -76,6 +76,22 @@ a { color: inherit; }
 .field-label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
 .field-input { width: 100%; padding: 11px 14px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; transition: all 0.15s; }
 .field-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+/* Browsers paint autofilled inputs with their own light background, which
+   breaks the dark theme. background-color can't be overridden, so an inset
+   shadow covers it and text-fill-color restores the foreground. */
+.field-input:-webkit-autofill,
+.field-input:-webkit-autofill:hover,
+.field-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-2) inset;
+  box-shadow: 0 0 0 1000px var(--bg-2) inset;
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+  transition: background-color 9999s ease-in-out 0s;
+}
+.field-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-2) inset, 0 0 0 3px var(--accent-dim);
+  box-shadow: 0 0 0 1000px var(--bg-2) inset, 0 0 0 3px var(--accent-dim);
+}
 .login-btn { width: 100%; padding: 12px; background: var(--text); color: var(--bg); border-radius: 8px; font-weight: 600; font-size: 14px; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.15s; }
 .login-btn:hover { background: var(--accent); }
 .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }

@@ -88,6 +88,7 @@ def chunk_documents(documents: list[dict]) -> list[dict]:
                     "source": document["source"],
                     "page": document["page"],
                     "category": document["category"],
+                    "company": document.get("company", ""),
                     "chunk_index": index,
                 }
             )

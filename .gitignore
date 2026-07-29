@@ -1,6 +1,8 @@
 # Secrets / environment
 .env
 .env.*
+!.env.example
+Frontend/.env
 
 # Scripts: commit only the .sql bootstraps; keep the .py/.sh helpers out
 scripts/*.py

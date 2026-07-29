@@ -5,10 +5,11 @@ POLICY_DOCUMENTS_DIR = PROJECT_ROOT / "policy_documents"
 CHROMA_DB_DIR = PROJECT_ROOT / "data" / "chroma"
 
 COLLECTION_NAME = "hr_policy_documents"
-# Default embedding model. Can be a sentence-transformers model id (loads locally)
-# or a Hugging Face Hub model id (requires HUGGINGFACE_API_KEY and will use the
-# Hugging Face Inference API). Recommended: BAAI/bge-base-en-v1.5
-EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+# Default embedding model, loaded locally by sentence-transformers.
+# Must match the model the ChromaDB index was built with — changing it changes
+# the vector dimension, so re-index afterwards:
+#     python -m rag_engine.maintenance
+EMBEDDING_MODEL_NAME = "BAAI/bge-base-en-v1.5"
 
 CHUNK_SIZE = 900
 CHUNK_OVERLAP = 150

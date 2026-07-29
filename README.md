@@ -36,132 +36,106 @@ Hugging Face Inference API.
 
 ---
 
-## Prerequisites
+## Quick start
 
-Install these first:
-
-- **Python 3.11+**
-- **Node.js 20+** and npm
-- **MySQL 8.x** (running locally)
-- A **Hugging Face token** with the **"Make calls to Inference Providers"** permission
-  — create one at <https://huggingface.co/settings/tokens>
-
----
-
-## Installation (local)
-
-### 1. Clone the repo
-
+**Linux / macOS**
 ```bash
 git clone <your-repo-url> Orbis_HR
 cd Orbis_HR
+./setup.sh          # installs everything, sets up the database, creates your admin
+./start.sh          # runs the backend and frontend together
 ```
 
-### 2. Backend — Python environment
+**Windows** (Command Prompt or PowerShell — or just double-click the files)
+```bat
+git clone <your-repo-url> Orbis_HR
+cd Orbis_HR
+setup.bat
+start.bat
+```
+
+Open **<http://localhost:5173>** and sign in with the admin account `setup.sh`
+created for you. That's the whole install.
+
+**You need installed first:** Python 3.11+, Node.js 20+, MySQL 8 (running), and a
+[Hugging Face token](https://huggingface.co/settings/tokens) with the
+*"Make calls to Inference Providers"* permission — `setup.sh` will ask you to
+paste it.
+
+Setup is safe to re-run: it skips anything already done. It generates your
+database password automatically and writes it to `.env` (never committed).
+
+Both entry points run the same `setup.py`, so Windows and Unix behave
+identically. The platform differences it handles for you:
+
+| | Linux / macOS | Windows |
+|---|---|---|
+| MySQL root | `sudo mysql` (socket auth) | `mysql -u root -p`, prompts for the password |
+| Virtualenv | `venv/bin/` | `venv\Scripts\` |
+| PyTorch | `requirements.txt` | CPU-only wheel + `requirements-windows.txt` (avoids a multi-GB CUDA download) |
+
+<details>
+<summary>What setup.sh does, if you'd rather run the steps yourself</summary>
 
 ```bash
-python -m venv venv
-source venv/bin/activate          # Windows: venv\Scripts\activate
+# 1. Configuration — copy the template and fill in your HF token + a DB password
+cp .env.example .env
+echo "VITE_API_BASE_URL=http://localhost:8000" > Frontend/.env
+
+# 2. Backend dependencies
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-```
 
-### 3. Create your `.env`
-
-Create a file named `.env` in the project root with:
-
-```ini
-# Hugging Face token (needs "Make calls to Inference Providers" permission)
-HUGGINGFACE_API_KEY=hf_your_token_here
-
-# MySQL — read-only HR data (used by NL→SQL)
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_USER=orbis_user
-MYSQL_PASSWORD=your_db_password
-MYSQL_DATABASE=orbis_hr
-
-# MySQL — read-write app state (users, chats, audit) — isolated DB
-MYSQL_APP_USER=orbis_app
-MYSQL_APP_PASSWORD=your_db_password
-MYSQL_APP_DATABASE=orbis_app
-
-# MySQL — read-write HR-data admin (only the admin "Employees" tab)
-MYSQL_HR_ADMIN_USER=orbis_hr_admin
-MYSQL_HR_ADMIN_PASSWORD=your_db_password
-
-# Models
-EMBEDDING_MODEL_NAME=BAAI/bge-base-en-v1.5
-HF_ANSWER_MODEL=meta-llama/Llama-3.1-8B-Instruct
-HF_SQL_MODEL=meta-llama/Llama-3.1-8B-Instruct
-```
-
-### 4. Set up the MySQL databases
-
-These scripts create the databases/users and load the employee data. Run them
-once (they need `sudo` because the local MySQL `root` uses socket auth):
-
-```bash
-# Read-only HR DB + load the employees CSV
+# 3. Databases (sudo, because local MySQL root uses socket auth). Replace
+#    __SET_A_STRONG_PASSWORD__ in each script with the password from your .env.
 sudo mysql --local-infile=1 < scripts/bootstrap_local_mysql.sql
-
-# Read-write app-state DB (users, sessions, conversations, audit)
 sudo mysql < scripts/bootstrap_app_mysql.sql
-
-# Read-write HR-admin user (for the admin "Employees" tab)
 sudo mysql < scripts/bootstrap_hr_admin_mysql.sql
-```
+sudo mysql < scripts/migrate_employee_identity.sql
 
-> The employee CSV lives in `database_data/`. If your MySQL root has a password,
-> use `sudo mysql -u root -p …` instead.
+# 4. Company email addresses (each employee's login identity)
+python -m app.provision backfill-emails
 
-### 5. Build the policy search index (ChromaDB)
-
-This downloads the local embedding model (~400 MB, first time only) and indexes
-the documents in `policy_documents/`:
-
-```bash
-source venv/bin/activate
+# 5. Policy search index (downloads the embedding model, ~440 MB, once)
 python -m rag_engine.maintenance
+
+# 6. Frontend dependencies
+cd Frontend && npm install && cd ..
+
+# 7. First administrator
+python -m app.provision create-admin --email you@orbis.com
 ```
 
-### 6. Frontend — install dependencies
+Then run the two servers in separate terminals:
+`uvicorn app.main:app --reload --port 8000` and `cd Frontend && npm run dev`.
 
-```bash
-cd Frontend
-npm install
-cd ..
-```
+</details>
 
 ---
 
-## Running the app
+### Creating the first administrator
 
-Open **two terminals** from the project root.
+No accounts are seeded — nothing ships with a known password. Create the first
+HR admin on the machine (it prompts for a password):
 
-**Terminal 1 — backend API**
 ```bash
 source venv/bin/activate
-uvicorn app.main:app --reload --port 8000
+python -m app.provision create-admin --email hr.head@orbis.com
 ```
-API: <http://localhost:8000>  ·  interactive docs: <http://localhost:8000/docs>
 
-**Terminal 2 — frontend**
-```bash
-cd Frontend
-npm run dev
-```
-App: **<http://localhost:5173>**
+Use any company address from the `employees` table; list a few with the
+`Employees` tab, or query `SELECT EmployeeName, Email FROM employees LIMIT 5`.
 
-Open <http://localhost:5173> in your browser.
+### How people get accounts
 
-### Demo accounts (seeded automatically, password `demo1234`)
+| Who | How |
+|-----|-----|
+| **New hires** | An admin adds them under **Employees**. Orbis mints their company address and emails a single-use setup link to their **personal** inbox. |
+| **Existing staff** | **Activate your account** on the login screen, using the company address HR issued. Addresses not on the HR system are refused. |
+| **New HR admins** | An existing admin grants access under **Users & Access**. |
 
-| Email | Role | Access |
-|-------|------|--------|
-| `rohit.verma@acmecorp.com` | HR Admin | org-wide data, policy library, audit, employees |
-| `priya.sharma@acmecorp.com` | Employee | only their own records + policies |
-
-New employees can self-register from the **Create an account** link on login.
+With `EMAIL_BACKEND=console` (the default) the invitation is printed to the
+backend terminal instead of being sent — copy the link from there.
 
 ---
 

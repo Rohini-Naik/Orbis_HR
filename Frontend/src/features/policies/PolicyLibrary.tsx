@@ -30,7 +30,11 @@ export function PolicyLibrary() {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { load() }, [search, category])
+  // Debounced so typing in the search box doesn't fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(load, 250)
+    return () => clearTimeout(t)
+  }, [search, category])
 
   function loadStats() { api.get<PolicyStats>('/policies/stats').then((r) => setStats(r.data)).catch(() => {}) }
   function load() {

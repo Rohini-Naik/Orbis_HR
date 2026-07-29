@@ -1,6 +1,6 @@
 """Pydantic request/response models for the API."""
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -12,11 +12,36 @@ class LoginRequest(BaseModel):
 
 
 class SignupRequest(BaseModel):
+    """Self-registration for staff already in the HR system. Identity comes
+    entirely from the company address — name, employee_id and department are
+    read from the HR record, never accepted from the client."""
     email: EmailStr
-    password: str = Field(min_length=6, max_length=128)
-    full_name: str = Field(min_length=1, max_length=120)
-    employee_id: Optional[int] = None  # links a normal user to their HR record
+    password: str = Field(min_length=8, max_length=128)
+
+
+class InviteAcceptRequest(BaseModel):
+    token: str
+    password: str = Field(min_length=8, max_length=128)
+
+
+class InvitePreview(BaseModel):
+    company_email: str
+    full_name: str
+
+
+class RoleUpdateRequest(BaseModel):
+    role: Literal["admin", "employee"]
+
+
+class UserSummary(BaseModel):
+    id: int
+    email: str
+    full_name: str
+    role: str
+    employee_id: Optional[str] = None
     department: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime
 
 
 class TokenResponse(BaseModel):
@@ -32,7 +57,7 @@ class UserProfile(BaseModel):
     email: str
     full_name: str
     role: str
-    employee_id: Optional[int] = None
+    employee_id: Optional[str] = None
     department: Optional[str] = None
 
 
@@ -47,6 +72,7 @@ class Source(BaseModel):
     source: Optional[str] = None
     page: Optional[int] = None
     section: Optional[str] = None
+    company: Optional[str] = None  # issuing organisation of the policy document
     score: Optional[float] = None
 
 
@@ -121,34 +147,41 @@ class AuditStats(BaseModel):
 
 # --- employees (HR data) ---
 class EmployeeCreate(BaseModel):
-    EmployeeID: int
-    EmployeeName: str
-    Age: Optional[int] = None
-    Gender: Optional[str] = None
-    Location: Optional[str] = None
-    Department: Optional[str] = None
+    """A new hire. `EmployeeID` and `Email` are allocated by the server, so
+    neither is accepted here; the personal address is where the onboarding
+    invitation is sent."""
+    FullName: str = Field(min_length=1, max_length=255)
+    PersonalEmail: EmailStr
     Role: Optional[str] = None
-    YearsAtCompany: Optional[int] = None
+    Department: Optional[str] = None
+    Location: Optional[str] = None
     DateOfJoining: Optional[date] = None
-    YearsInCurrentRole: Optional[int] = None
-    EducationLevel: Optional[str] = None
-    MonthlySalaryINR: Optional[int] = None
-    WorkHoursPerWeek: Optional[int] = None
-    ProjectsHandled: Optional[int] = None
-    TrainingHoursLastYear: Optional[int] = None
-    SickLeavesLastYear: Optional[int] = None
-    OvertimeHoursLastMonth: Optional[int] = None
-    ManagerRating: Optional[int] = None
-    DisciplinaryNotices: Optional[int] = None
-    PolicyViolationsLastYear: Optional[int] = None
-    PerformanceRating: Optional[int] = None
-    PromotionLast2Years: Optional[str] = None
-    ComplianceRiskLevel: Optional[str] = None
-    AttritionRisk: Optional[str] = None
+    ManagerID: Optional[str] = None
+    ManagerName: Optional[str] = None
+    CasualLeaveBalance: Optional[int] = None
+    CasualLeaveUsed: Optional[int] = None
+    SickLeaveBalance: Optional[int] = None
+    SickLeaveUsed: Optional[int] = None
+    EarnedLeaveBalance: Optional[int] = None
+    EarnedLeaveUsed: Optional[int] = None
+    LastAppraisalDate: Optional[date] = None
+    NextAppraisalDate: Optional[date] = None
+    POSHTrainingCompleted: Optional[str] = None
+    POSHTrainingDate: Optional[date] = None
+    PerformanceRating: Optional[str] = None
+    AnnualCTC_INR: Optional[int] = None
+    EmploymentType: Optional[str] = None
 
 
-class Employee(EmployeeCreate):
-    pass
+class Employee(BaseModel):
+    """An employee as stored. Permissive on purpose: the HR table is reference
+    data and its shape may vary between deployments."""
+    EmployeeID: str
+    FullName: str
+    Email: Optional[str] = None
+    Status: str = "active"
+
+    model_config = {"extra": "allow"}
 
 
 class EmployeeListResponse(BaseModel):

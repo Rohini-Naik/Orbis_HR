@@ -229,7 +229,7 @@ function Extras({ meta }: { meta: ChatResponse }) {
           <div className="src-info">
             <div className="src-title">[{s.idx}] {s.source}</div>
             <div className="src-detail">
-              {s.section ?? 'Section'} · p{s.page}
+              {s.company && `${s.company} · `}{s.section ?? 'Section'} · p{s.page}
               {s.score != null && ` · relevance ${Math.round(s.score * 100)}%`}
             </div>
           </div>
