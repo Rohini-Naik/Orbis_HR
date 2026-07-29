@@ -192,6 +192,20 @@ the AI.
 
 Setup is safe to re-run at any point; it skips work already done.
 
+### Starting over
+
+Setup preserves data, so accounts and indexed chunks from an earlier version
+survive. To wipe and rebuild everything from source:
+
+```bash
+./setup.sh --reset          # Windows: setup.bat --reset
+```
+
+It asks for confirmation, then drops both databases and the search index and
+recreates them: employees reloaded from `database_data/employees.csv`, the index
+rebuilt from `policy_documents/`, and no user accounts at all until you create
+an administrator. Your `.env`, the PDFs and the CSV are untouched.
+
 ---
 
 ### Creating the first administrator

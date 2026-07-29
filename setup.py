@@ -15,6 +15,7 @@ Safe to re-run — every step detects work already done and skips it.
 """
 from __future__ import annotations
 
+import argparse
 import os
 import re
 import secrets
@@ -426,6 +427,11 @@ def provision_mysql(env: dict[str, str]) -> None:
     run_sql_file(ROOT / "scripts" / "bootstrap_hr_admin_mysql.sql", db_password)
     ok("orbis_hr_admin user")
 
+    # Create the application's own tables now, so a freshly dropped orbis_app
+    # is usable before anything tries to read from it.
+    run([str(VENV_PY), "-c", "from app.db import init_db; init_db()"], cwd=ROOT)
+    ok("application tables ready")
+
     step("Loading employee records")
     run([str(VENV_PY), "-m", "app.provision", "load-employees"], cwd=ROOT)
 
@@ -492,11 +498,53 @@ def create_admin() -> None:
                     "--email", email], cwd=ROOT)
 
 
+def reset_everything(env: dict[str, str]) -> None:
+    """Drop both databases and the search index so the run rebuilds from source.
+
+    Ordinary setup preserves data — `CREATE DATABASE IF NOT EXISTS` and
+    `CREATE TABLE IF NOT EXISTS` leave existing rows alone — which is right most
+    of the time but keeps accounts and indexed chunks from earlier versions.
+    """
+    step("Resetting")
+    print(f"  {RED}{BOLD}This deletes:{OFF}")
+    print(f"    · every Orbis account, conversation and audit entry (orbis_app)")
+    print(f"    · the employees table (orbis_hr) — reloaded from the CSV")
+    print(f"    · the policy search index — rebuilt from policy_documents/")
+    print(f"  {DIM}Your .env, the policy PDFs and the employee CSV are untouched.{OFF}")
+    print()
+    if input("  Type 'reset' to confirm: ").strip().lower() != "reset":
+        die("Aborted — nothing was changed.")
+
+    app_db = env.get("MYSQL_APP_DATABASE", "orbis_app")
+    hr_db = env.get("MYSQL_DATABASE", "orbis_hr")
+    proc = subprocess.run(
+        mysql_root() + ["-e", f"DROP DATABASE IF EXISTS {app_db}; DROP DATABASE IF EXISTS {hr_db};"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+    )
+    if proc.returncode != 0:
+        die(f"Could not drop the databases:\n{proc.stderr.decode(errors='ignore')[:400]}")
+    ok(f"dropped {app_db} and {hr_db}")
+
+    chroma = ROOT / "data" / "chroma"
+    if chroma.exists():
+        shutil.rmtree(chroma)
+        ok("removed the search index")
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Set up Orbis on this machine.")
+    parser.add_argument(
+        "--reset", action="store_true",
+        help="wipe the databases and search index first, then rebuild everything",
+    )
+    args = parser.parse_args()
+
     print(f"{BOLD}Orbis setup{OFF}  {DIM}({'Windows' if IS_WINDOWS else 'Unix'}){OFF}")
     check_prerequisites()
     env = configure_env()
     install_backend()
+    if args.reset:
+        reset_everything(env)
     provision_mysql(env)
     backfill(env)
     build_index()

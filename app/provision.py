@@ -230,6 +230,12 @@ def main() -> None:
         p.add_argument("--email", required=True)
 
     args = parser.parse_args()
+
+    # The CLI is often the first thing to touch a freshly created database,
+    # so make sure the application's tables exist before querying them.
+    from app.db import init_db
+    init_db()
+
     if args.command == "load-employees":
         load_employees(args.csv)
     elif args.command == "backfill-emails":
