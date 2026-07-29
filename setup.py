@@ -110,6 +110,21 @@ def _env_value(key: str, default: str) -> str:
     return default
 
 
+def _diagnose(attempts: list[tuple[str, str]]) -> str:
+    """Turn the collected MySQL errors into the one sentence worth acting on."""
+    joined = " ".join(error.lower() for _, error in attempts)
+    if "can't connect" in joined or "connection refused" in joined:
+        return ("the MySQL server is not running. Start it with "
+                "`sudo systemctl start mysql` and run setup again.")
+    if "access denied" in joined:
+        return ("MySQL's root account has a password set. Enter it below, or "
+                "reset it: https://dev.mysql.com/doc/refman/8.0/en/resetting-permissions.html")
+    if "command not found" in joined or "no such file" in joined:
+        return ("the mysql client is not on PATH. On Windows add "
+                r"C:\Program Files\MySQL\MySQL Server 8.0\bin")
+    return ""
+
+
 def _prime_sudo() -> bool:
     """Get a sudo session before the silent probes run.
 
@@ -170,15 +185,23 @@ def mysql_root() -> list[str]:
         "DROP USER 'orbis_setup_probe'@'localhost';"
     )
 
+    attempts: list[tuple[str, str]] = []
+
     def works(cmd: list[str]) -> bool:
+        """Try one way in. Failures are recorded rather than discarded — when
+        every route fails, the MySQL error is the only thing that explains why."""
         try:
             result = subprocess.run(
                 cmd + ["-e", probe],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60,
+                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=60,
             )
-            return result.returncode == 0
-        except Exception:
-            return False
+            if result.returncode == 0:
+                return True
+            message = result.stderr.decode(errors="ignore").strip().splitlines()
+            attempts.append((" ".join(cmd), message[-1] if message else "failed"))
+        except Exception as exc:
+            attempts.append((" ".join(cmd), f"{type(exc).__name__}: {exc}"))
+        return False
 
     # Always pin host and port to the values the application itself uses.
     # A ~/.my.cnf can silently redirect a bare `mysql` to an entirely different
@@ -199,6 +222,11 @@ def mysql_root() -> list[str]:
         for cmd in (
             ["sudo", "mysql", "--no-defaults", "-h", host, "-P", port],
             ["sudo", "mysql", "--no-defaults"],  # socket auth takes no -h
+            # `--no-defaults` also suppresses the config that tells the client
+            # where the server's socket lives, so on some installs it cannot
+            # connect at all. Allowing defaults is a last resort — the target
+            # check below still refuses an unexpected remote server.
+            ["sudo", "mysql"],
         ):
             if works(cmd):
                 _root_cmd = cmd
@@ -209,11 +237,18 @@ def mysql_root() -> list[str]:
     # Fall back to prompting for the root password.
     print()
     print(f"  {YELLOW}Could not reach MySQL as an administrator automatically.{OFF}")
-    print(f"  {DIM}This is your MySQL server's own root password — the one set when")
-    print(f"  MySQL was installed. It is NOT your computer login, and NOT anything")
-    print(f"  Orbis creates. Leave it blank if MySQL root has no password.{OFF}")
-    print(f"  {DIM}On Linux, Ctrl-C and run 'sudo mysql' to check whether root needs")
-    print(f"  a password at all.{OFF}")
+    print(f"  {DIM}What each attempt reported:{OFF}")
+    for cmd, error in attempts:
+        print(f"    {DIM}${OFF} {cmd}")
+        print(f"      {RED}{error[:150]}{OFF}")
+    print()
+    hint = _diagnose(attempts)
+    if hint:
+        print(f"  {BOLD}Most likely: {hint}{OFF}\n")
+    print(f"  {DIM}Otherwise, enter your MySQL server's own root password — the one")
+    print(f"  set when MySQL was installed. It is NOT your computer login. Press")
+    print(f"  Enter to try a blank password.{OFF}")
+    print(f"  {DIM}For a full check, run: bash scripts/diagnose_mysql.sh{OFF}")
     print()
     import getpass
 
