@@ -27,6 +27,16 @@ def build_context(matches: List[Dict[str, Any]]) -> str:
     return "\n\n".join(parts)
 
 
+# Models differ in how they mark citations: some emit [1], others the
+# 【1†L3-L4】 form. Normalising to [1] keeps the answer readable and lets the
+# source filter below recognise what was actually cited.
+_ALT_CITATION = re.compile(r"【\s*(\d+)\s*[^】]*】")
+
+
+def normalise_citations(answer: str) -> str:
+    return _ALT_CITATION.sub(r"[\1]", answer)
+
+
 def _cited_only(answer: str, sources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Keep only the retrieved chunks the answer actually cited, so a citation
     list means "this is what the answer rests on". Falls back to the full set
@@ -52,7 +62,7 @@ def answer_question(
     prompt = PROMPT_TEMPLATE.format(
         history=_format_history(history), context=context, question=question
     )
-    answer = chat(prompt, model=settings.ANSWER_MODEL)
+    answer = normalise_citations(chat(prompt, model=settings.ANSWER_MODEL))
     sources = [
         {
             "idx": i,

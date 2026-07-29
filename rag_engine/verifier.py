@@ -29,7 +29,10 @@ def verify_answer(answer: str, context: str) -> Dict[str, Any]:
         verdict = chat(
             VERIFY_PROMPT.format(context=context, answer=answer),
             model=settings.ANSWER_MODEL,
-            max_tokens=64,  # room for a reasoning model to think before answering
+            # Generous on purpose: a reasoning model consumes part of the
+            # budget thinking, and a truncated reply is an empty reply — which
+            # fails closed and withholds a perfectly good answer.
+            max_tokens=256,
         )
         label, _, score = verdict.strip().partition("|")
         grounded = label.strip().upper().startswith("GROUNDED")

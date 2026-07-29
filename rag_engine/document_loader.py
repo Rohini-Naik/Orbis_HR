@@ -46,8 +46,10 @@ def infer_category(file_name: str) -> str:
         return "Leave"
     if any(k in name for k in ("posh", "harassment", "conduct", "ethics", "disciplin", "whistle")):
         return "Conduct"
-    if any(k in name for k in ("benefit", "health", "wellness", "remuneration",
-                               "salary", "travel", "expense", "reimburse")):
+    if any(k in name for k in ("benefit", "health", "wellness", "wellbeing",
+                               "remuneration", "salary", "travel", "expense",
+                               "reimburse", "learning", "development",
+                               "certification", "insurance", "safety")):
         return "Benefits"
     if any(k in name for k in ("privacy", "confidential", "data", "diba")):
         return "Privacy"
