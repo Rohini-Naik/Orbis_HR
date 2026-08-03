@@ -13,4 +13,7 @@ EMBEDDING_MODEL_NAME = "BAAI/bge-base-en-v1.5"
 
 CHUNK_SIZE = 900
 CHUNK_OVERLAP = 150
-DEFAULT_TOP_K = 5
+# Broad questions ("what is the X policy?") ask about a whole document, and five
+# fragments is not enough to answer one — the model fills the gaps from its own
+# knowledge and the verifier rightly rejects the result.
+DEFAULT_TOP_K = 8

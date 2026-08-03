@@ -15,14 +15,19 @@ from app.auth import (
 )
 from app.db import execute, query_one
 from app.schemas import (
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
     InviteAcceptRequest,
     InvitePreview,
     LoginRequest,
+    MessageResponse,
+    ResetPasswordRequest,
+    ResetPreview,
     SignupRequest,
     TokenResponse,
     UserProfile,
 )
-from app.services import onboarding_service
+from app.services import onboarding_service, password_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -93,6 +98,44 @@ def login(body: LoginRequest) -> TokenResponse:
             status.HTTP_403_FORBIDDEN,
             "This account has been deactivated. Please contact HR.",
         )
+    return TokenResponse(
+        access_token=_issue_token(user["id"]), email=user["email"],
+        full_name=user["full_name"], role=user["role"],
+    )
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+def forgot_password(body: ForgotPasswordRequest) -> Dict[str, str]:
+    """Start a password reset. The reply is the same whether or not the address
+    exists, so this cannot be used to discover who has an account."""
+    _check_login_rate(body.email)
+    _record_failure(body.email)  # count towards the same budget as sign-in attempts
+    return {"message": password_service.request_reset(body.email)}
+
+
+@router.get("/reset/{token}", response_model=ResetPreview)
+def preview_reset(token: str) -> Dict[str, Any]:
+    """Confirm which account a reset link belongs to before a password is set."""
+    return password_service.peek_reset(token)
+
+
+@router.post("/reset", response_model=TokenResponse, status_code=200)
+def reset_password(body: ResetPasswordRequest) -> TokenResponse:
+    """Set a new password and sign the person straight in."""
+    account = password_service.complete_reset(body.token, body.password)
+    user = query_one("SELECT * FROM users WHERE email = %s", (account["email"],))
+    return TokenResponse(
+        access_token=_issue_token(user["id"]), email=user["email"],
+        full_name=user["full_name"], role=user["role"],
+    )
+
+
+@router.post("/change-password", response_model=TokenResponse)
+def change_password(
+    body: ChangePasswordRequest, user: Dict[str, Any] = Depends(get_current_user)
+) -> TokenResponse:
+    """Change the signed-in account's password. Other sessions are ended."""
+    password_service.change_password(user, body.current_password, body.new_password)
     return TokenResponse(
         access_token=_issue_token(user["id"]), email=user["email"],
         full_name=user["full_name"], role=user["role"],

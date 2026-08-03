@@ -67,12 +67,17 @@ GROQ_REASONING_EFFORT: str = os.getenv("GROQ_REASONING_EFFORT", "low").strip()
 GROQ_ANSWER_MODEL: str = os.getenv("GROQ_ANSWER_MODEL") or "openai/gpt-oss-120b"
 GROQ_SQL_MODEL: str = os.getenv("GROQ_SQL_MODEL") or "openai/gpt-oss-120b"
 GROQ_ROUTER_MODEL: str = os.getenv("GROQ_ROUTER_MODEL") or "llama-3.1-8b-instant"
+# Verification is a judgement, not a puzzle. A non-reasoning model reaches the
+# same verdicts here without spending tokens thinking — which matters because
+# the verifier reads the whole answer plus its context on every question.
+GROQ_VERIFIER_MODEL: str = os.getenv("GROQ_VERIFIER_MODEL") or "llama-3.3-70b-versatile"
 
 # Resolved ids the application uses. Call sites reference these rather than a
 # provider-specific name, so switching provider changes nothing downstream.
 ANSWER_MODEL: str = GROQ_ANSWER_MODEL if LLM_PROVIDER == "groq" else HF_ANSWER_MODEL
 SQL_MODEL: str = GROQ_SQL_MODEL if LLM_PROVIDER == "groq" else HF_SQL_MODEL
 ROUTER_MODEL: str = GROQ_ROUTER_MODEL if LLM_PROVIDER == "groq" else HF_ANSWER_MODEL
+VERIFIER_MODEL: str = GROQ_VERIFIER_MODEL if LLM_PROVIDER == "groq" else HF_ANSWER_MODEL
 
 # --- Employer identity -------------------------------------------------
 # The organisation this deployment serves. Company email addresses are minted
@@ -96,6 +101,10 @@ APP_BASE_URL: str = (os.getenv("APP_BASE_URL") or "http://localhost:5173").rstri
 
 # How long an onboarding invite stays valid.
 INVITE_TTL_DAYS: int = int(os.getenv("INVITE_TTL_DAYS", 7))
+
+# A reset link is far more sensitive than an invitation — it takes over an
+# existing account rather than activating a new one — so it lives for minutes.
+RESET_TTL_MINUTES: int = int(os.getenv("RESET_TTL_MINUTES", 60))
 
 
 def get_mysql_config() -> Dict[str, Any]:
@@ -154,11 +163,13 @@ __all__ = [
     "GROQ_REASONING_EFFORT",
     "GROQ_ANSWER_MODEL",
     "GROQ_ROUTER_MODEL",
+    "GROQ_VERIFIER_MODEL",
     "GROQ_SQL_MODEL",
     "LLM_PROVIDER",
     "ANSWER_MODEL",
     "SQL_MODEL",
     "ROUTER_MODEL",
+    "VERIFIER_MODEL",
     "COMPANY_NAME",
     "COMPANY_EMAIL_DOMAIN",
     "EMAIL_BACKEND",
@@ -170,6 +181,7 @@ __all__ = [
     "SMTP_USE_TLS",
     "APP_BASE_URL",
     "INVITE_TTL_DAYS",
+    "RESET_TTL_MINUTES",
     "get_mysql_config",
     "get_app_mysql_config",
     "get_hr_admin_mysql_config",

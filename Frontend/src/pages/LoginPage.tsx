@@ -1,51 +1,72 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Info, MailCheck } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Info, KeyRound, MailCheck, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { BrandMark } from '../components/Brand'
+import { PasswordField } from '../components/PasswordField'
 import { api, errMessage } from '../api/client'
-import type { InvitePreview } from '../api/types'
+import type { InvitePreview, ResetPreview } from '../api/types'
 
-type Mode = 'signin' | 'register' | 'invite'
+type Mode = 'signin' | 'register' | 'invite' | 'forgot' | 'reset'
 
-// Only ever used as an input hint. Kept in config so it follows
-// COMPANY_EMAIL_DOMAIN rather than being baked into the page.
+// Only ever an input hint; follows COMPANY_EMAIL_DOMAIN rather than being baked in.
 const EMAIL_HINT = `you@${import.meta.env.VITE_COMPANY_EMAIL_DOMAIN ?? 'company.com'}`
 
-/** New hires arrive from their invitation email as /?invite=<token>. */
-function inviteTokenFromUrl(): string | null {
-  return new URLSearchParams(window.location.search).get('invite')
+/** New hires arrive as /?invite=…, reset links as /?reset=… */
+function tokenFromUrl(key: 'invite' | 'reset'): string | null {
+  return new URLSearchParams(window.location.search).get(key)
+}
+
+function clearUrl() {
+  window.history.replaceState({}, '', window.location.pathname)
 }
 
 export function LoginPage() {
-  const { login, signup, acceptInvite } = useAuth()
-  const [mode, setMode] = useState<Mode>(() => (inviteTokenFromUrl() ? 'invite' : 'signin'))
+  const { login, signup, acceptInvite, resetPassword } = useAuth()
+
+  const [mode, setMode] = useState<Mode>(() =>
+    tokenFromUrl('invite') ? 'invite' : tokenFromUrl('reset') ? 'reset' : 'signin',
+  )
   const [invite, setInvite] = useState<InvitePreview | null>(null)
+  const [reset, setReset] = useState<ResetPreview | null>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [sent, setSent] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  // Resolve the invitation so the new hire sees the address being created.
+  // Resolve whichever link brought the person here, so they can see which
+  // account they are about to set a password for.
   useEffect(() => {
-    const token = inviteTokenFromUrl()
-    if (!token) return
-    api
-      .get<InvitePreview>(`/auth/invite/${token}`)
-      .then((r) => {
-        setInvite(r.data)
-        setEmail(r.data.company_email)
-      })
-      .catch((e) => {
-        setError(errMessage(e, 'This invitation link is no longer valid.'))
-        setMode('signin')
-      })
+    const inviteToken = tokenFromUrl('invite')
+    const resetToken = tokenFromUrl('reset')
+    if (inviteToken) {
+      api.get<InvitePreview>(`/auth/invite/${inviteToken}`)
+        .then((r) => { setInvite(r.data); setEmail(r.data.company_email) })
+        .catch((e) => {
+          setError(errMessage(e, 'This invitation link is no longer valid.'))
+          setMode('signin'); clearUrl()
+        })
+    } else if (resetToken) {
+      api.get<ResetPreview>(`/auth/reset/${resetToken}`)
+        .then((r) => { setReset(r.data); setEmail(r.data.email) })
+        .catch((e) => {
+          setError(errMessage(e, 'This reset link is no longer valid.'))
+          setMode('signin'); clearUrl()
+        })
+    }
   }, [])
+
+  function go(next: Mode) {
+    setMode(next); setError(''); setSent(''); setPassword(''); setConfirm('')
+  }
+
+  const needsConfirm = mode === 'register' || mode === 'invite' || mode === 'reset'
 
   async function submit() {
     setError('')
-    if (mode !== 'signin' && password !== confirm) {
-      setError('Passwords do not match.')
+    if (needsConfirm && password !== confirm) {
+      setError('The two passwords do not match.')
       return
     }
     setBusy(true)
@@ -53,26 +74,44 @@ export function LoginPage() {
       if (mode === 'signin') {
         await login(email, password)
       } else if (mode === 'invite') {
-        await acceptInvite(inviteTokenFromUrl()!, password)
-        window.history.replaceState({}, '', window.location.pathname)
+        await acceptInvite(tokenFromUrl('invite')!, password)
+        clearUrl()
+      } else if (mode === 'reset') {
+        await resetPassword(tokenFromUrl('reset')!, password)
+        clearUrl()
+      } else if (mode === 'forgot') {
+        const { data } = await api.post<{ message: string }>('/auth/forgot-password', { email })
+        setSent(data.message)
       } else {
         await signup(email, password)
       }
     } catch (e) {
-      setError(errMessage(e, 'Authentication failed'))
+      setError(errMessage(e, 'Something went wrong. Please try again.'))
     } finally {
       setBusy(false)
     }
   }
 
-  const title =
-    mode === 'signin' ? (
-      <>Sign in to your <em>compliance</em> workspace.</>
-    ) : mode === 'invite' ? (
-      <>Welcome. Set your <em>password</em>.</>
-    ) : (
-      <>Activate your <em>employee</em> account.</>
-    )
+  const title = {
+    signin: <>Sign in to your <em>compliance</em> workspace.</>,
+    register: <>Activate your <em>employee</em> account.</>,
+    invite: <>Welcome. Set your <em>password</em>.</>,
+    forgot: <>Reset your <em>password</em>.</>,
+    reset: <>Choose a <em>new password</em>.</>,
+  }[mode]
+
+  const subtitle = {
+    signin: 'Your data stays on-premise.',
+    register: 'Use the company address HR issued you.',
+    invite: 'One step left before you can sign in.',
+    forgot: "We'll email you a link to set a new one.",
+    reset: 'This signs you out on every other device.',
+  }[mode]
+
+  const cta = {
+    signin: 'Continue', register: 'Create account', invite: 'Create account',
+    forgot: 'Send reset link', reset: 'Set new password',
+  }[mode]
 
   return (
     <div className="login-view">
@@ -84,13 +123,20 @@ export function LoginPage() {
 
       <div className="login-card">
         <h1 className="login-title">{title}</h1>
-        <p className="login-subtitle">Your data stays on-premise.</p>
+        <p className="login-subtitle">{subtitle}</p>
 
         {mode === 'invite' && invite && (
           <div className="login-hint" style={{ marginBottom: 18 }}>
             <MailCheck size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />
             Hi <strong>{invite.full_name}</strong> — your company email is{' '}
             <code>{invite.company_email}</code>. Choose a password to finish setting up.
+          </div>
+        )}
+
+        {mode === 'reset' && reset && (
+          <div className="login-hint" style={{ marginBottom: 18 }}>
+            <KeyRound size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />
+            Resetting the password for <code>{reset.email}</code>.
           </div>
         )}
 
@@ -101,71 +147,98 @@ export function LoginPage() {
           </div>
         )}
 
-        <div className="field-group">
-          <label className="field-label">Company email</label>
-          <input
-            className="field-input"
-            type="email"
-            value={email}
-            disabled={mode === 'invite'}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder={EMAIL_HINT}
-          />
-        </div>
+        {sent ? (
+          <>
+            <div className="login-sent">
+              <MailCheck size={17} />
+              <span>{sent}</span>
+            </div>
+            <div className="login-switch" style={{ marginTop: 18 }}>
+              <button className="link-btn" onClick={() => go('signin')}>
+                <ArrowLeft size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                Back to sign in
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="field-group">
+              <label className="field-label" htmlFor="login-email">Company email</label>
+              <input
+                id="login-email"
+                className="field-input"
+                type="email"
+                value={email}
+                autoComplete="username"
+                disabled={mode === 'invite' || mode === 'reset'}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && mode === 'forgot') submit() }}
+                placeholder={EMAIL_HINT}
+              />
+            </div>
 
-        <div className="field-group">
-          <label className="field-label">{mode === 'signin' ? 'Password' : 'Choose a password'}</label>
-          <input
-            className="field-input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            onKeyDown={(e) => e.key === 'Enter' && mode === 'signin' && submit()}
-          />
-        </div>
+            {mode !== 'forgot' && (
+              <PasswordField
+                label={mode === 'signin' ? 'Password' : 'Choose a password'}
+                value={password}
+                onChange={setPassword}
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                strength={mode !== 'signin'}
+                onEnter={mode === 'signin' ? submit : undefined}
+              />
+            )}
 
-        {mode !== 'signin' && (
-          <div className="field-group">
-            <label className="field-label">Confirm password</label>
-            <input
-              className="field-input"
-              type="password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              placeholder="••••••••"
-              onKeyDown={(e) => e.key === 'Enter' && submit()}
-            />
-          </div>
+            {needsConfirm && (
+              <PasswordField
+                label="Confirm password"
+                value={confirm}
+                onChange={setConfirm}
+                autoComplete="new-password"
+                matches={password}
+                onEnter={submit}
+              />
+            )}
+
+            {mode === 'signin' && (
+              <div className="login-meta">
+                <button className="link-btn" onClick={() => go('forgot')}>
+                  Forgot your password?
+                </button>
+              </div>
+            )}
+
+            <button className="login-btn" onClick={submit} disabled={busy}>
+              {busy ? <span className="spinner" /> : <>{cta} <ArrowRight size={16} /></>}
+            </button>
+          </>
         )}
-
-        <button className="login-btn" onClick={submit} disabled={busy}>
-          {busy ? (
-            <span className="spinner" />
-          ) : (
-            <>
-              {mode === 'signin' ? 'Continue' : 'Create account'} <ArrowRight size={16} />
-            </>
-          )}
-        </button>
 
         {error && <div className="login-error">{error}</div>}
 
-        {mode !== 'invite' && (
+        {!sent && mode !== 'invite' && mode !== 'reset' && (
           <div className="login-switch">
-            {mode === 'signin' ? (
+            {mode === 'signin' && (
               <>
                 Already an employee?{' '}
-                <button onClick={() => { setMode('register'); setError('') }}>
-                  Activate your account
-                </button>
-              </>
-            ) : (
-              <>
-                Already set up?{' '}
-                <button onClick={() => { setMode('signin'); setError('') }}>Sign in</button>
+                <button onClick={() => go('register')}>Activate your account</button>
               </>
             )}
+            {mode === 'register' && (
+              <>Already set up? <button onClick={() => go('signin')}>Sign in</button></>
+            )}
+            {mode === 'forgot' && (
+              <button className="link-btn" onClick={() => go('signin')}>
+                <ArrowLeft size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                Back to sign in
+              </button>
+            )}
+          </div>
+        )}
+
+        {mode === 'reset' && (
+          <div className="login-switch" style={{ fontSize: 11.5 }}>
+            <ShieldCheck size={12} style={{ verticalAlign: 'middle', marginRight: 5 }} />
+            Reset links expire and can only be used once.
           </div>
         )}
       </div>

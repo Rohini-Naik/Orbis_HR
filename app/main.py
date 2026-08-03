@@ -5,6 +5,7 @@ Docs at:   http://localhost:8000/docs
 """
 import logging
 import os
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
@@ -27,10 +28,34 @@ CORS_ORIGINS = os.getenv(
 ).split(",")
 
 
+def _warm_embedding_model() -> None:
+    """Load the embedding model in the background as the server starts.
+
+    It takes roughly 15 seconds and is then cached for the life of the process.
+    Without this the first policy question pays the entire cost — long enough
+    that people assume the answer has failed and reload the page, which is
+    exactly when it starts working, because the model finished loading anyway.
+
+    Loading on a thread keeps startup immediate; by the time anyone has signed
+    in and typed a question, the model is ready.
+    """
+    def load() -> None:
+        try:
+            from rag_engine.embeddings import warm_up
+            warm_up()
+            logger.info("Policy search is ready")
+        except Exception:
+            logger.exception("Could not preload the embedding model; the first "
+                             "policy question will load it instead")
+
+    threading.Thread(target=load, name="embedding-warmup", daemon=True).start()
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
     seed_policy_files()
+    _warm_embedding_model()
     yield
 
 

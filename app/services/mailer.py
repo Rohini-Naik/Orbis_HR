@@ -53,6 +53,30 @@ def send(to: str, subject: str, body: str) -> bool:
         return False
 
 
+def send_password_reset(to: str, full_name: str, link: str) -> bool:
+    """Send a reset link. Says plainly what to do if the request wasn't theirs."""
+    company = settings.COMPANY_NAME
+    return send(
+        to,
+        f"Reset your {company} password",
+        f"""Hi {full_name},
+
+Someone asked to reset the password for your {company} account. If that was
+you, choose a new password here:
+
+    {link}
+
+This link expires in {settings.RESET_TTL_MINUTES} minutes and can only be used
+once. Setting a new password signs you out on every device.
+
+If you did not request this, you can ignore this message — your password has
+not changed. If it keeps happening, please tell HR.
+
+— {company} People Team
+""",
+    )
+
+
 def send_invite(to: str, full_name: str, company_email: str, link: str) -> bool:
     """Welcome a new hire and point them at their set-password link."""
     company = settings.COMPANY_NAME

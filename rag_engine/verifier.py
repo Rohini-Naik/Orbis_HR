@@ -16,6 +16,19 @@ VERIFY_PROMPT = (
 )
 
 
+def _budget_for(prompt: str) -> int:
+    """Token ceiling for the verdict, scaled to the amount being checked.
+
+    The reply itself is a dozen tokens, but a reasoning model thinks first and
+    that thinking grows with the input. A fixed ceiling silently truncated the
+    verdict on longer answers, and a truncated verdict arrives as an empty one —
+    which fails closed and withholds a perfectly good answer. `max_tokens` is a
+    ceiling rather than a cost, so being generous here is free.
+    """
+    estimated_input = len(prompt) // 4
+    return max(512, min(4096, estimated_input * 2))
+
+
 def verify_answer(answer: str, context: str) -> Dict[str, Any]:
     """Return {grounded: bool, confidence: float, available: bool}.
 
@@ -25,14 +38,12 @@ def verify_answer(answer: str, context: str) -> Dict[str, Any]:
     and rejected this" from "the checker could not run" — they look the same to
     the user but must not be treated alike in the audit trail.
     """
+    prompt = VERIFY_PROMPT.format(context=context, answer=answer)
     try:
         verdict = chat(
-            VERIFY_PROMPT.format(context=context, answer=answer),
-            model=settings.ANSWER_MODEL,
-            # Generous on purpose: a reasoning model consumes part of the
-            # budget thinking, and a truncated reply is an empty reply — which
-            # fails closed and withholds a perfectly good answer.
-            max_tokens=256,
+            prompt,
+            model=settings.VERIFIER_MODEL,
+            max_tokens=_budget_for(prompt),
         )
         label, _, score = verdict.strip().partition("|")
         grounded = label.strip().upper().startswith("GROUNDED")

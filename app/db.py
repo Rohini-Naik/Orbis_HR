@@ -88,6 +88,17 @@ SCHEMA = [
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
     """
+    CREATE TABLE IF NOT EXISTS password_resets (
+        token      VARCHAR(255) PRIMARY KEY,
+        user_id    INT NOT NULL,
+        expires_at DATETIME NOT NULL,
+        used_at    DATETIME NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        INDEX idx_resets_user (user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    """,
+    """
     CREATE TABLE IF NOT EXISTS policy_files (
         id          INT AUTO_INCREMENT PRIMARY KEY,
         filename    VARCHAR(512) NOT NULL UNIQUE,

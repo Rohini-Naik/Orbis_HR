@@ -19,6 +19,29 @@ class SignupRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str = Field(min_length=8, max_length=128)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
+class ResetPreview(BaseModel):
+    email: str
+    full_name: str
+
+
 class InviteAcceptRequest(BaseModel):
     token: str
     password: str = Field(min_length=8, max_length=128)

@@ -111,6 +111,11 @@ export interface InvitePreview {
   full_name: string
 }
 
+export interface ResetPreview {
+  email: string
+  full_name: string
+}
+
 export interface UserSummary {
   id: number
   email: string

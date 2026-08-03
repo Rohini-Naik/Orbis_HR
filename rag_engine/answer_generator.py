@@ -5,17 +5,27 @@ import re
 from typing import Any, Dict, List, Optional
 
 from rag_engine import settings
+from rag_engine.config import DEFAULT_TOP_K
 from rag_engine.llm import chat
 from rag_engine.rag_pipeline import search_policy
 
 
 PROMPT_TEMPLATE = (
-    "You are a helpful HR assistant. Use only the provided context to answer the "
-    "question. Cite supporting context inline using square-bracket numbers like "
-    "[1], [2].\n\n"
-    "{history}Context:\n{context}\n\nQuestion:\n{question}\n\n"
-    "Answer concisely. If the answer is not in the context, say "
-    "\"I don't know based on the provided documents.\""
+    "You are an HR assistant. Answer the question using ONLY the numbered "
+    "context below.\n\n"
+    "Rules:\n"
+    "- Every statement you make must be supported by the context. Do not add "
+    "detail, figures or timeframes that do not appear there, even if you know "
+    "them from elsewhere.\n"
+    "- Cite with square brackets after each claim, e.g. [1]. Only use numbers "
+    "that appear in the context; never invent a citation number.\n"
+    "- Prefer a short, fully supported answer over a longer one that goes "
+    "beyond the context.\n"
+    "- Earlier conversation is background only; the answer must come from the "
+    "context.\n"
+    "- If the context does not answer the question, reply exactly: "
+    "\"I don't know based on the provided documents.\"\n\n"
+    "{history}Context:\n{context}\n\nQuestion:\n{question}\n\nAnswer:"
 )
 
 
@@ -33,8 +43,28 @@ def build_context(matches: List[Dict[str, Any]]) -> str:
 _ALT_CITATION = re.compile(r"【\s*(\d+)\s*[^】]*】")
 
 
-def normalise_citations(answer: str) -> str:
-    return _ALT_CITATION.sub(r"[\1]", answer)
+_CITATION = re.compile(r"\[(\d+)\]")
+
+
+def normalise_citations(answer: str, source_count: int) -> str:
+    """Convert alternative citation markers to [n], and drop any that point
+    nowhere.
+
+    The 【n†…】 form carries the model's own internal numbering, which does not
+    match the numbering given in the context — so it can yield references like
+    [11] when only eight sources exist. A marker the reader cannot follow is
+    worse than no marker, so out-of-range ones are removed rather than shown.
+    """
+    def keep(match: "re.Match[str]") -> str:
+        index = int(match.group(1))
+        return f"[{index}]" if 1 <= index <= source_count else ""
+
+    answer = _ALT_CITATION.sub(keep, answer)
+    answer = _CITATION.sub(keep, answer)
+    # Tidy the gaps a removed marker leaves behind.
+    answer = re.sub(r"[ \t]{2,}", " ", answer)
+    answer = re.sub(r"[ \t]+([.,;:])", r"\1", answer)
+    return answer.strip()
 
 
 def _cited_only(answer: str, sources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -54,7 +84,7 @@ def _format_history(history: Optional[List[Dict[str, str]]]) -> str:
 
 def answer_question(
     question: str,
-    top_k: int = 5,
+    top_k: int = DEFAULT_TOP_K,
     history: Optional[List[Dict[str, str]]] = None,
 ) -> Dict[str, Any]:
     matches = search_policy(question, top_k=top_k)["results"]
@@ -62,7 +92,9 @@ def answer_question(
     prompt = PROMPT_TEMPLATE.format(
         history=_format_history(history), context=context, question=question
     )
-    answer = normalise_citations(chat(prompt, model=settings.ANSWER_MODEL))
+    answer = normalise_citations(
+        chat(prompt, model=settings.ANSWER_MODEL), source_count=len(matches)
+    )
     sources = [
         {
             "idx": i,

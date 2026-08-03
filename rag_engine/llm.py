@@ -14,6 +14,7 @@ Switching is an environment change, not a code change — which matters because
 a provider running out of credits should not require touching the application.
 """
 import logging
+import time
 from functools import lru_cache
 from typing import Any, Dict, List
 
@@ -69,11 +70,24 @@ def _groq_complete(messages: List[Dict[str, str]], model: str,
         payload.pop("reasoning_effort", None)
         response = _groq_client().post(GROQ_URL, json=payload)
 
+    # A single question makes several calls, so a burst of questions can trip
+    # the per-minute limit. These pauses are short enough to be invisible and
+    # turn a failed answer into a slightly slower one.
+    for delay in (2, 5):
+        if response.status_code != 429:
+            break
+        logger.warning("Groq rate limit hit; retrying in %ss", delay)
+        time.sleep(delay)
+        response = _groq_client().post(GROQ_URL, json=payload)
+
     if response.status_code != 200:
         if response.status_code == 401:
             raise LLMError("Groq rejected the API key (401). Check GROQ_API_KEY in .env.")
         if response.status_code == 429:
-            raise LLMError("Groq rate limit reached (429). Wait a moment and retry.")
+            raise LLMError(
+                "Groq rate limit reached (429) and did not clear after two retries. "
+                "Wait a minute before asking again."
+            )
         raise LLMError(f"Groq returned {response.status_code}: {response.text[:300]}")
 
     message = response.json()["choices"][0]["message"]

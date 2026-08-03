@@ -1,0 +1,1578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Orbis — Engineering Guide</title>
+<style>
+/* ============================================================ TOKENS */
+:root{
+  --paper:#F6F8FA; --paper-2:#FFFFFF; --paper-3:#EDF1F5;
+  --ink:#0E1621; --ink-2:#2C3A48; --ink-3:#5A6B7B;
+  --rule:#D8E0E8; --rule-2:#E8EDF2;
+  --accent:#0F6B63; --accent-soft:#E2F1EF; --accent-line:#9FCCC7;
+  --amber:#8A5F10; --amber-soft:#FAF0DA;
+  --crimson:#94282F; --crimson-soft:#FBE6E7;
+  --violet:#4C4191; --violet-soft:#ECEAF7;
+  --shadow:0 1px 2px rgba(14,22,33,.05), 0 8px 24px -12px rgba(14,22,33,.18);
+  --serif:Iowan Old Style,Palatino Linotype,Palatino,Georgia,"Times New Roman",serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --rail:264px; --measure:70ch;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#0C131B; --paper-2:#111A24; --paper-3:#16212D;
+    --ink:#E7EDF3; --ink-2:#B7C4D0; --ink-3:#8195A6;
+    --rule:#22303E; --rule-2:#1B2733;
+    --accent:#5FC7BC; --accent-soft:#10322F; --accent-line:#2A5F5A;
+    --amber:#D9A441; --amber-soft:#33270F;
+    --crimson:#E4868C; --crimson-soft:#341A1C;
+    --violet:#A79BE8; --violet-soft:#221E3D;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 28px -14px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0C131B; --paper-2:#111A24; --paper-3:#16212D;
+  --ink:#E7EDF3; --ink-2:#B7C4D0; --ink-3:#8195A6;
+  --rule:#22303E; --rule-2:#1B2733;
+  --accent:#5FC7BC; --accent-soft:#10322F; --accent-line:#2A5F5A;
+  --amber:#D9A441; --amber-soft:#33270F;
+  --crimson:#E4868C; --crimson-soft:#341A1C;
+  --violet:#A79BE8; --violet-soft:#221E3D;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 28px -14px rgba(0,0,0,.7);
+}
+:root[data-theme="light"]{
+  --paper:#F6F8FA; --paper-2:#FFFFFF; --paper-3:#EDF1F5;
+  --ink:#0E1621; --ink-2:#2C3A48; --ink-3:#5A6B7B;
+  --rule:#D8E0E8; --rule-2:#E8EDF2;
+  --accent:#0F6B63; --accent-soft:#E2F1EF; --accent-line:#9FCCC7;
+  --amber:#8A5F10; --amber-soft:#FAF0DA;
+  --crimson:#94282F; --crimson-soft:#FBE6E7;
+  --violet:#4C4191; --violet-soft:#ECEAF7;
+  --shadow:0 1px 2px rgba(14,22,33,.05), 0 8px 24px -12px rgba(14,22,33,.18);
+}
+
+/* ============================================================ BASE */
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:24px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--sans);font-size:16px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:var(--serif);font-weight:600;text-wrap:balance;line-height:1.2;margin:0}
+p{margin:0}
+a{color:var(--accent)}
+code,kbd{font-family:var(--mono);font-size:.86em}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+
+/* ============================================================ SHELL */
+.shell{display:grid;grid-template-columns:var(--rail) minmax(0,1fr);min-height:100vh}
+.rail{
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  border-right:1px solid var(--rule);background:var(--paper-2);
+  padding:26px 18px 40px;display:flex;flex-direction:column;gap:20px;
+}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-mark{
+  width:30px;height:30px;border-radius:8px;flex:none;
+  background:var(--accent);color:var(--paper-2);
+  display:grid;place-items:center;font-family:var(--serif);font-weight:700;font-size:16px;
+}
+.brand-name{font-family:var(--serif);font-size:19px;font-weight:600;letter-spacing:.01em}
+.brand-sub{font-size:11px;color:var(--ink-3);letter-spacing:.07em;text-transform:uppercase}
+.nav{display:flex;flex-direction:column;gap:1px}
+.nav-group{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:14px 0 6px;padding-left:10px}
+.nav a{
+  display:block;padding:5px 10px;border-radius:6px;font-size:13.5px;
+  color:var(--ink-2);text-decoration:none;border-left:2px solid transparent;
+}
+.nav a:hover{background:var(--paper-3);color:var(--ink)}
+.nav a.on{color:var(--accent);background:var(--accent-soft);border-left-color:var(--accent);font-weight:500}
+.theme-btn{
+  margin-top:auto;background:none;border:1px solid var(--rule);color:var(--ink-2);
+  border-radius:7px;padding:7px 10px;font:inherit;font-size:12.5px;cursor:pointer;
+}
+.theme-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+.main{min-width:0;padding:0 0 100px}
+.wrap{max-width:var(--measure);margin:0 auto;padding:0 32px}
+.wide{max-width:1180px;margin:0 auto;padding:0 32px}
+
+/* ============================================================ HERO */
+.hero{border-bottom:1px solid var(--rule);padding:64px 0 44px;background:var(--paper-2)}
+.eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.hero h1{font-size:clamp(36px,5vw,52px);margin:14px 0 16px;letter-spacing:-.015em}
+.lede{font-size:19px;line-height:1.55;color:var(--ink-2);max-width:60ch}
+.facts{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+.fact{
+  background:var(--paper);border:1px solid var(--rule);border-radius:9px;
+  padding:9px 13px;display:flex;flex-direction:column;gap:1px;min-width:104px;
+}
+.fact b{font-family:var(--mono);font-size:17px;font-variant-numeric:tabular-nums;color:var(--accent)}
+.fact span{font-size:10.5px;color:var(--ink-3);letter-spacing:.05em;text-transform:uppercase}
+
+/* ============================================================ SECTIONS */
+section{padding:52px 0 8px;scroll-margin-top:20px}
+section+section{border-top:1px solid var(--rule-2)}
+.s-head{margin-bottom:22px}
+.s-num{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.08em}
+.s-head h2{font-size:30px;margin:5px 0 8px;letter-spacing:-.01em}
+.s-head p{color:var(--ink-3);font-size:15.5px}
+h3{font-size:20px;margin:32px 0 10px}
+h4{font-size:15.5px;margin:22px 0 7px;font-family:var(--sans);font-weight:650}
+.wrap p+p{margin-top:13px}
+.wrap>p,.wrap>ul,.wrap>ol{color:var(--ink-2)}
+ul,ol{margin:11px 0;padding-left:20px}
+li{margin:5px 0;color:var(--ink-2)}
+li::marker{color:var(--ink-3)}
+strong{color:var(--ink);font-weight:650}
+
+/* ============================================================ BLOCKS */
+.note{
+  border-left:3px solid var(--accent);background:var(--accent-soft);
+  padding:14px 16px;border-radius:0 8px 8px 0;margin:18px 0;font-size:14.5px;color:var(--ink-2);
+}
+.note.warn{border-left-color:var(--amber);background:var(--amber-soft)}
+.note.stop{border-left-color:var(--crimson);background:var(--crimson-soft)}
+.note b{display:block;color:var(--ink);margin-bottom:3px;font-size:13px;letter-spacing:.02em}
+
+pre{
+  background:var(--ink);color:#DCE6EF;border-radius:9px;padding:15px 17px;
+  overflow-x:auto;font-family:var(--mono);font-size:12.8px;line-height:1.62;margin:15px 0;
+  border:1px solid var(--rule);
+}
+/* Code blocks keep a dark ground in both themes — syntax colour is tuned for it. */
+pre .c{color:#7C93A6}         /* comment */
+pre .k{color:#7FD1C6}         /* keyword */
+pre .s{color:#E0B57C}         /* string  */
+pre .n{color:#A9B8E8}         /* name    */
+pre .hl{color:#F0A9AE}        /* danger  */
+code:not(pre code){
+  background:var(--paper-3);border:1px solid var(--rule-2);
+  padding:1px 5px;border-radius:4px;color:var(--ink);
+}
+
+.tbl-scroll{overflow-x:auto;margin:16px 0;border:1px solid var(--rule);border-radius:9px;background:var(--paper-2)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--rule-2);vertical-align:top}
+th{
+  background:var(--paper-3);font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--ink-3);font-weight:600;white-space:nowrap;
+}
+tr:last-child td{border-bottom:none}
+td code{white-space:nowrap}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+
+.pill{
+  display:inline-block;padding:1.5px 8px;border-radius:20px;font-size:11px;
+  font-weight:600;letter-spacing:.02em;white-space:nowrap;
+}
+.pill.ok{background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line)}
+.pill.adm{background:var(--amber-soft);color:var(--amber);border:1px solid currentColor}
+.pill.no{background:var(--crimson-soft);color:var(--crimson);border:1px solid currentColor}
+.pill.ai{background:var(--violet-soft);color:var(--violet);border:1px solid currentColor}
+
+/* ============================================================ DIAGRAM */
+.fig{
+  margin:24px 0;border:1px solid var(--rule);border-radius:11px;
+  background:var(--paper-2);padding:22px;box-shadow:var(--shadow);
+}
+.fig-cap{font-size:12px;color:var(--ink-3);margin-top:14px;padding-top:11px;border-top:1px solid var(--rule-2)}
+.fig-cap b{color:var(--ink-2)}
+.flow{display:flex;flex-direction:column;align-items:center;gap:0;font-size:13px}
+.node{
+  border:1px solid var(--rule);background:var(--paper);border-radius:9px;
+  padding:10px 15px;text-align:center;min-width:200px;
+}
+.node .t{font-weight:650;font-size:13.5px}
+.node .d{font-size:11.5px;color:var(--ink-3);margin-top:2px}
+.node.ai{border-color:var(--violet);background:var(--violet-soft)}
+.node.ok{border-color:var(--accent);background:var(--accent-soft)}
+.node.no{border-color:var(--crimson);background:var(--crimson-soft)}
+.node.db{border-color:var(--amber);background:var(--amber-soft)}
+.arrow{width:1px;height:20px;background:var(--rule);position:relative;flex:none}
+.arrow::after{
+  content:"";position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);
+  border-left:4px solid transparent;border-right:4px solid transparent;
+  border-top:6px solid var(--rule);
+}
+.branch{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;width:100%}
+.branch .node{flex:1 1 190px;min-width:170px}
+.lane{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.lane .step{
+  flex:1 1 150px;min-width:140px;border:1px solid var(--rule);border-radius:9px;
+  background:var(--paper);padding:11px 13px;
+}
+.lane .step .n{font-family:var(--mono);font-size:10.5px;color:var(--accent)}
+.lane .step .t{font-weight:650;font-size:13px;margin-top:2px}
+.lane .step .d{font-size:11.5px;color:var(--ink-3);margin-top:3px}
+
+/* ============================================================ TREE */
+.tree{
+  font-family:var(--mono);font-size:13px;line-height:1.85;
+  background:var(--paper-2);border:1px solid var(--rule);border-radius:10px;
+  padding:18px 20px;overflow-x:auto;margin:18px 0;
+}
+.tree .dir{color:var(--accent);font-weight:600}
+.tree .cmt{color:var(--ink-3)}
+.tree .new{color:var(--violet)}
+
+/* ============================================================ CARDS */
+.grid{display:grid;gap:14px;margin:18px 0}
+.g2{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.card{
+  border:1px solid var(--rule);border-radius:10px;background:var(--paper-2);
+  padding:15px 17px;
+}
+.card h4{margin:0 0 5px;font-size:14.5px}
+.card p{font-size:13.5px;color:var(--ink-2)}
+.card .meta{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-bottom:6px}
+
+.filecard{border:1px solid var(--rule);border-radius:10px;background:var(--paper-2);margin:14px 0;overflow:hidden}
+.filecard>summary{
+  cursor:pointer;padding:12px 16px;display:flex;align-items:center;gap:10px;
+  font-family:var(--mono);font-size:13.5px;color:var(--ink);list-style:none;
+}
+.filecard>summary::-webkit-details-marker{display:none}
+.filecard>summary::before{content:"▸";color:var(--accent);font-size:11px;transition:transform .15s}
+.filecard[open]>summary::before{transform:rotate(90deg)}
+.filecard>summary .loc{margin-left:auto;font-size:11px;color:var(--ink-3)}
+.filecard>summary:hover{background:var(--paper-3)}
+.filecard .body{padding:2px 18px 16px;border-top:1px solid var(--rule-2)}
+.filecard .body p{font-size:14px;color:var(--ink-2);margin-top:11px}
+.filecard .body ul{font-size:13.5px}
+
+.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 16px;font-size:14px;margin:12px 0}
+.kv dt{font-family:var(--mono);font-size:12.5px;color:var(--ink-3);white-space:nowrap}
+.kv dd{margin:0;color:var(--ink-2)}
+
+.term{border-left:2px solid var(--rule);padding-left:14px;margin:14px 0}
+.term b{font-family:var(--mono);font-size:13px;color:var(--accent)}
+.term p{font-size:14px;color:var(--ink-2);margin-top:2px}
+
+/* ============================================================ RESPONSIVE */
+@media (max-width:960px){
+  .shell{grid-template-columns:1fr}
+  .rail{position:static;height:auto;border-right:none;border-bottom:1px solid var(--rule);
+        flex-direction:row;flex-wrap:wrap;align-items:center;gap:12px;padding:14px 20px}
+  .nav{flex-direction:row;flex-wrap:wrap;gap:2px}
+  .nav-group{display:none}
+  .nav a{font-size:12.5px;padding:4px 9px;border-left:none}
+  .nav a.on{border-left:none}
+  .theme-btn{margin-left:auto}
+  .wrap,.wide{padding:0 20px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- =================================================== RAIL -->
+<aside class="rail">
+  <div class="brand">
+    <div class="brand-mark">O</div>
+    <div>
+      <div class="brand-name">Orbis</div>
+      <div class="brand-sub">Engineering Guide</div>
+    </div>
+  </div>
+
+  <nav class="nav" id="nav">
+    <div class="nav-group">Orientation</div>
+    <a href="#what">What it is</a>
+    <a href="#problem">The problem</a>
+    <a href="#walkthrough">One question, end to end</a>
+    <div class="nav-group">Foundations</div>
+    <a href="#stack">Tech stack</a>
+    <a href="#models">The models</a>
+    <a href="#glossary">Key concepts</a>
+    <div class="nav-group">The engine</div>
+    <a href="#router">1 · Router</a>
+    <a href="#rag">2 · RAG pipeline</a>
+    <a href="#nlsql">3 · NL to SQL</a>
+    <a href="#verifier">4 · Verifier</a>
+    <div class="nav-group">The application</div>
+    <a href="#security">Security model</a>
+    <a href="#identity">Identity &amp; onboarding</a>
+    <a href="#data">Data model</a>
+    <div class="nav-group">Reference</div>
+    <a href="#tree">Folder map</a>
+    <a href="#files-rag">Files · rag_engine</a>
+    <a href="#files-app">Files · app</a>
+    <a href="#files-fe">Files · Frontend</a>
+    <a href="#testing">Testing</a>
+    <a href="#limits">Limits &amp; next steps</a>
+  </nav>
+
+  <button class="theme-btn" id="themeBtn" type="button">Switch theme</button>
+</aside>
+
+<!-- =================================================== MAIN -->
+<main class="main">
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Agentic AI · HR Compliance</div>
+    <h1>Orbis, explained from the ground up</h1>
+    <p class="lede">
+      An HR assistant that answers questions from two grounded sources — the company's
+      policy documents and its employee database — and refuses to answer when it
+      cannot show its working. This guide covers every design decision and every file.
+    </p>
+    <div class="facts">
+      <div class="fact"><b>11</b><span>policies</span></div>
+      <div class="fact"><b>77</b><span>chunks</span></div>
+      <div class="fact"><b>48</b><span>employees</span></div>
+      <div class="fact"><b>3</b><span>AI routes</span></div>
+      <div class="fact"><b>45</b><span>tests</span></div>
+      <div class="fact"><b>~4.3k</b><span>lines</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================ WHAT -->
+<section id="what">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="s-num">Orientation</div>
+      <h2>What it is</h2>
+      <p>The one-paragraph version, then the same thing with the jargon removed.</p>
+    </div>
+
+    <p>
+      Orbis is an AI HR co-pilot. An employee or HR administrator types a question in
+      plain English. An <strong>LLM router</strong> reads it and decides which of three
+      engines should answer: a <strong>retrieval-augmented pipeline</strong> over the
+      company's policy PDFs, a <strong>natural-language-to-SQL engine</strong> over the
+      employee database, or ordinary conversation. Policy answers come back with the
+      document and page they came from, and pass through a
+      <strong>hallucination filter</strong> that withholds anything the source does not
+      support. Data answers are confined to the caller's own record unless they hold
+      HR-admin rights. Everything is written to an audit trail.
+    </p>
+
+    <h3>The same thing, without the jargon</h3>
+    <p>
+      Imagine an HR helpdesk that never sleeps. Ask it <em>"how many casual leaves do I
+      have left?"</em> and it looks you up in the HR system. Ask <em>"what is the
+      maternity leave policy?"</em> and it reads the actual policy document and quotes the
+      page. Ask something it cannot support with evidence, and it says so rather than
+      inventing an answer — which matters, because a confident wrong answer about
+      someone's notice period or harassment complaint is worse than no answer at all.
+    </p>
+
+    <div class="note">
+      <b>The idea worth taking away</b>
+      Most chatbots generate text. Orbis is built the other way round: it retrieves
+      evidence first, generates only from that evidence, then checks the generated text
+      against it before anyone sees it. Every layer exists to make the answer
+      <em>attributable</em>.
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ PROBLEM -->
+<section id="problem">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="s-num">Orientation</div>
+      <h2>The problem being solved</h2>
+      <p>Why not just point ChatGPT at the HR handbook?</p>
+    </div>
+
+    <p>Three things make HR a genuinely hard domain for a language model:</p>
+
+    <div class="grid g3">
+      <div class="card">
+        <div class="meta">problem 01</div>
+        <h4>It doesn't know your company</h4>
+        <p>A general model has never read your leave policy. Asked about it, it will
+        produce something plausible and generic — which is worse than useless when an
+        employee acts on it.</p>
+      </div>
+      <div class="card">
+        <div class="meta">problem 02</div>
+        <h4>HR data is private</h4>
+        <p>Salary, appraisal ratings and disciplinary records sit in a database.
+        An assistant that can read them must be incapable of showing your record to a
+        colleague — not merely unlikely to.</p>
+      </div>
+      <div class="card">
+        <div class="meta">problem 03</div>
+        <h4>Wrong answers carry weight</h4>
+        <p>Notice periods, POSH procedure, maternity entitlement. A fabricated answer
+        here has legal consequences, so an answer with no source is a defect.</p>
+      </div>
+    </div>
+
+    <p>Orbis answers each of these with a specific mechanism:</p>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Problem</th><th>Mechanism</th><th>Where it lives</th></tr></thead>
+        <tbody>
+          <tr><td>Doesn't know your company</td><td>RAG over your own PDFs, with citations</td><td><code>rag_engine/rag_pipeline.py</code></td></tr>
+          <tr><td>Private data</td><td>Read-only DB user + post-generation scope check</td><td><code>rag_engine/nl_to_sql.py</code></td></tr>
+          <tr><td>Wrong answers</td><td>Second model grades the answer against the source</td><td><code>rag_engine/verifier.py</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ WALKTHROUGH -->
+<section id="walkthrough">
+  <div class="wide">
+    <div class="s-head" style="max-width:var(--measure);margin-left:auto;margin-right:auto">
+      <div class="s-num">Orientation</div>
+      <h2>One question, end to end</h2>
+      <p>Follow a single real question through every component before meeting them individually.</p>
+    </div>
+
+    <div class="fig">
+      <div class="flow">
+        <div class="node"><div class="t">"What is the maternity leave policy?"</div><div class="d">POST /chat · bearer token identifies the caller</div></div>
+        <div class="arrow"></div>
+        <div class="node ai"><div class="t">Router — llama-3.1-8b-instant</div><div class="d">classifies into sql / rag / chat · ~0.3s</div></div>
+        <div class="arrow"></div>
+        <div class="branch">
+          <div class="node"><div class="t">rag</div><div class="d">policy question<br>→ this path</div></div>
+          <div class="node db"><div class="t">sql</div><div class="d">HR data question<br>→ database</div></div>
+          <div class="node"><div class="t">chat</div><div class="d">greeting or small talk<br>→ plain reply</div></div>
+        </div>
+        <div class="arrow"></div>
+        <div class="node ok"><div class="t">Embed the question locally</div><div class="d">bge-base-en-v1.5 → 768-number vector · never leaves the machine</div></div>
+        <div class="arrow"></div>
+        <div class="node db"><div class="t">ChromaDB similarity search</div><div class="d">closest 5 of 77 chunks → Leave &amp; Time-Off Policy, p2</div></div>
+        <div class="arrow"></div>
+        <div class="node ai"><div class="t">Answer — gpt-oss-120b</div><div class="d">"use ONLY this context" + the 5 chunks</div></div>
+        <div class="arrow"></div>
+        <div class="node ai"><div class="t">Verifier — gpt-oss-120b</div><div class="d">grades the answer against the context → GROUNDED|0.99</div></div>
+        <div class="arrow"></div>
+        <div class="node ok"><div class="t">Answer released with citation</div><div class="d">"26 weeks … Maternity Benefit Act, 1961 [1]" + audit entry</div></div>
+      </div>
+      <div class="fig-cap">
+        <b>Figure 1.</b> The full path. Note that the verifier can veto: had it replied
+        <code>UNGROUNDED</code>, the user would have received "I don't know based on the
+        provided documents" and the sources would have been stripped from the response.
+      </div>
+    </div>
+
+    <div class="wrap" style="padding-left:0;padding-right:0">
+      <h3>The actual output</h3>
+      <p>Run against the live system while writing this guide:</p>
+<pre><span class="c"># question</span>
+How long does a POSH inquiry take and who runs it?
+
+<span class="c"># route chosen</span>
+rag
+
+<span class="c"># retrieved (top of 5)</span>
+0.690  Orbis_POSH_Policy.pdf  p2  [Conduct]
+
+<span class="c"># answer</span>
+The Internal Committee (IC) conducts the POSH inquiry, and it must be
+completed within 90 days of the complaint being filed<span class="n">[3]</span>.
+
+<span class="c"># verifier</span>
+grounded: <span class="k">True</span>   confidence: 0.98   checker available: <span class="k">True</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ STACK -->
+<section id="stack">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="s-num">Foundations</div>
+      <h2>Tech stack</h2>
+      <p>What each piece is for, and why it rather than an alternative.</p>
+    </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Layer</th><th>Choice</th><th>Job</th><th>Why this one</th></tr></thead>
+        <tbody>
+          <tr><td>API</td><td>FastAPI (Python 3.11+)</td><td>HTTP endpoints, validation, auth</td><td>Pydantic validates every request body; OpenAPI docs come free</td></tr>
+          <tr><td>HR database</td><td>MySQL 8</td><td>Employee records</td><td>Relational data the SQL engine queries; privileges are the security boundary</td></tr>
+          <tr><td>App database</td><td>MySQL 8 <em>(separate)</em></td><td>Accounts, chats, audit</td><td>Isolated so app users cannot touch HR data</td></tr>
+          <tr><td>Vector store</td><td>ChromaDB</td><td>Policy chunks + embeddings</td><td>Runs in-process, persists to disk, no server to operate</td></tr>
+          <tr><td>Embeddings</td><td>bge-base-en-v1.5</td><td>Text → 768 numbers</td><td>Runs <strong>locally</strong>; document text never leaves the machine</td></tr>
+          <tr><td>Generation</td><td>Groq API</td><td>Routing, answers, SQL, checking</td><td>Free tier, ~1s responses, OpenAI-compatible</td></tr>
+          <tr><td>Frontend</td><td>React 19 + TypeScript (Vite)</td><td>Dashboard</td><td>Types shared with API schemas catch drift at compile time</td></tr>
+          <tr><td>PDF parsing</td><td>pypdf</td><td>PDF → text per page</td><td>Page numbers preserved, which is what makes citations possible</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <b>An honest note on "on-premise"</b>
+      Embeddings run locally, so your policy text and employee data are never sent
+      anywhere during retrieval. Generation, however, calls a hosted API. The accurate
+      description is <em>local embeddings, hosted generation</em>. Because every model
+      call goes through one file, moving to a fully local model is a configuration
+      change rather than a rewrite.
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ MODELS -->
+<section id="models">
+  <div class="wide">
+    <div class="s-head" style="max-width:var(--measure);margin-left:auto;margin-right:auto">
+      <div class="s-num">Foundations</div>
+      <h2>The models — which, from where, and why</h2>
+      <p>Four jobs, three models, one provider interface.</p>
+    </div>
+
+    <div class="wrap" style="padding-left:0;padding-right:0">
+      <p>
+        A common mistake is to use one large model for everything. Orbis uses a
+        different model per job, because the jobs have genuinely different shapes:
+        classifying a sentence into one of three buckets is not the same problem as
+        writing correct SQL.
+      </p>
+    </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Job</th><th>Model</th><th>Where</th><th>Why this model</th><th class="num">Measured</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>Routing</b></td>
+            <td><code>llama-3.1-8b-instant</code></td>
+            <td>Groq</td>
+            <td>A 3-way classification. A small model is faster and cheaper, and every question pays this cost.</td>
+            <td class="num">14/14<br><span style="color:var(--ink-3)">0.32 s</span></td>
+          </tr>
+          <tr>
+            <td><b>Policy answers</b></td>
+            <td><code>openai/gpt-oss-120b</code></td>
+            <td>Groq</td>
+            <td>Must follow "use only this context" faithfully and cite correctly. Worth the strongest model available.</td>
+            <td class="num">0.98–0.99<br><span style="color:var(--ink-3)">confidence</span></td>
+          </tr>
+          <tr>
+            <td><b>NL → SQL</b></td>
+            <td><code>openai/gpt-oss-120b</code></td>
+            <td>Groq</td>
+            <td>Benchmarked against llama-3.3-70b: same accuracy, 3× faster.</td>
+            <td class="num">12/12</td>
+          </tr>
+          <tr>
+            <td><b>Verification</b></td>
+            <td><code>openai/gpt-oss-120b</code></td>
+            <td>Groq</td>
+            <td>Judging whether a claim is supported is subtle; a weak grader defeats the purpose.</td>
+            <td class="num">—</td>
+          </tr>
+          <tr>
+            <td><b>Embeddings</b></td>
+            <td><code>BAAI/bge-base-en-v1.5</code></td>
+            <td><span class="pill ok">local</span></td>
+            <td>Strong retrieval quality at 768 dimensions, CPU-friendly, ~440 MB.</td>
+            <td class="num">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="wrap" style="padding-left:0;padding-right:0">
+      <h3>Why the SQL model was chosen by measurement, not reputation</h3>
+      <p>
+        Three candidates were run against the same twelve questions. The result changed
+        the decision — the largest model was also the fastest, and a well-regarded
+        mid-size model failed completely because it emitted reasoning prose where SQL
+        was expected:
+      </p>
+<pre><span class="n">openai/gpt-oss-120b</span>          12/12   ~1.0 s/query   <span class="k">← chosen</span>
+<span class="n">llama-3.3-70b-versatile</span>      10/10    2.4 s/query
+<span class="n">qwen/qwen3.6-27b</span>              0/10    <span class="hl">returned commentary, not SQL</span></pre>
+
+      <div class="note">
+        <b>A trap worth knowing about: reasoning models</b>
+        <code>gpt-oss-120b</code> "thinks" before answering, and that thinking consumes
+        the token budget. The router originally allowed <code>max_tokens=4</code> — fine
+        for a normal model, but the reasoning model spent all four thinking and returned
+        <em>nothing</em>. Every question silently fell back to small talk. Two fixes:
+        <code>reasoning_effort=low</code>, and budgets that leave room for an actual
+        answer.
+      </div>
+
+      <h3>One provider interface</h3>
+      <p>
+        Every model call in the system goes through three functions in
+        <code>rag_engine/llm.py</code>. Swapping provider is an environment variable:
+      </p>
+<pre><span class="n">LLM_PROVIDER</span>=groq          <span class="c"># default when GROQ_API_KEY is present</span>
+<span class="n">LLM_PROVIDER</span>=huggingface   <span class="c"># same code, different backend</span></pre>
+      <p>
+        This is not hypothetical tidiness. Mid-development the Hugging Face account ran
+        out of credits and returned <code>402 Payment Required</code>, taking the whole
+        application down. Because provider selection was already isolated, the migration
+        to Groq touched one file plus configuration.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ GLOSSARY -->
+<section id="glossary">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="s-num">Foundations</div>
+      <h2>Key concepts</h2>
+      <p>If any term below is unfamiliar, read this before the engine sections.</p>
+    </div>
+
+    <div class="term"><b>Embedding</b>
+      <p>A list of numbers representing a piece of text's meaning. Here, 768 numbers.
+      Texts with similar meaning get similar numbers — which is how "am I entitled to
+      maternity leave?" finds a paragraph that never uses the word "entitled".</p></div>
+
+    <div class="term"><b>Vector store</b>
+      <p>A database of embeddings that can answer "which stored texts are closest to
+      this one?" quickly. Orbis uses ChromaDB, persisted under <code>data/chroma/</code>.</p></div>
+
+    <div class="term"><b>Chunk</b>
+      <p>Policies are too long to feed a model whole, so they're split into ~900-character
+      pieces. Each chunk keeps its source file, page and category — the reason a citation
+      can name a page.</p></div>
+
+    <div class="term"><b>RAG — retrieval-augmented generation</b>
+      <p>Instead of asking the model what it knows, you retrieve relevant text first and
+      instruct the model to answer <em>only</em> from it. Turns an unverifiable claim into
+      a citable one.</p></div>
+
+    <div class="term"><b>NL → SQL</b>
+      <p>Turning "how many people are in Legal?" into
+      <code>SELECT COUNT(*) FROM employees WHERE Department = 'Legal'</code>, then running it.</p></div>
+
+    <div class="term"><b>Few-shot prompting</b>
+      <p>Showing a model worked examples rather than describing rules. Orbis keeps 18
+      question→SQL pairs and selects the 6 most relevant per question, using the same
+      embedding model that powers policy search.</p></div>
+
+    <div class="term"><b>Grounded</b>
+      <p>Every claim in an answer is supported by the retrieved text. The verifier's job
+      is to decide this, and its verdict can suppress the answer.</p></div>
+  </div>
+</section>
+
+<!-- ============================================ ROUTER -->
+<section id="router">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="s-num">Engine · 1 of 4</div>
+      <h2>The router</h2>
+      <p><code>rag_engine/router.py</code> — 52 lines, one function, runs on every message.</p>
+    </div>
+
+    <p>
+      The router reads the message and replies with exactly one word. Everything
+      downstream depends on it being right, so it is deliberately the simplest
+      component in the system.
+    </p>
+
+<pre><span class="k">def</span> <span class="n">decide_route</span>(question: str) -> str:
+    answer = chat(ROUTE_PROMPT.format(question=question),
+                  model=settings.ROUTER_MODEL,
+                  max_tokens=<span class="s">32</span>)          <span class="c"># not 4 — see the reasoning-model trap</span>
+    word = answer.strip().lower()
+    <span class="k">if</span> <span class="s">"sql"</span> <span class="k">in</span> word:  <span class="k">return</span> <span class="s">"sql"</span>
+    <span class="k">if</span> <span class="s">"rag"</span> <span class="k">in</span> word:  <span class="k">return</span> <span class="s">"rag"</span>
+    <span class="k">return</span> <span class="s">"chat"</span>                     <span class="c"># unrecognised → safest branch</span></pre>
+
+    <p>
+      Substring matching rather than equality is deliberate: a model that replies
+      <code>"sql"</code> and one that replies <code>"Answer: sql"</code> should both work.
+      Anything unrecognised falls to <code>chat</code>, the branch that cannot leak data
+      or invent policy.
+    </p>
+
+    <h3>The prompt mirrors the database</h3>
+    <p>
+      The original prompt described an older schema, so <em>"who is my manager"</em>
+      routed to small talk — the router had never been told manager data existed. The
+      lesson generalises: <strong>a router must know what the system can actually
+      answer.</strong> It now lists the real column families.
+    </p>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Route</th><th>Triggers on</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill adm">sql</span></td><td>leave balances, appraisals, salary, manager, POSH status, headcount</td><td>"who is my manager"</td></tr>
+          <tr><td><span class="pill ai">rag</span></td><td>policy, rules, handbook, eligibility, procedure</td><td>"what is my notice period"</td></tr>
+          <tr><td><span class="pill ok">chat</span></td><td>greetings, thanks, questions about the assistant</td><td>"what can you do"</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note"><b>Measured</b> 14 of 14 test questions routed correctly, averaging 0.32 s.</div>
+  </div>
+</section>
+
+<!-- ============================================ RAG -->
+<section id="rag">
+  <div class="wide">
+    <div class="s-head" style="max-width:var(--measure);margin-left:auto;margin-right:auto">
+      <div class="s-num">Engine · 2 of 4</div>
+      <h2>The RAG pipeline</h2>
+      <p>How a PDF becomes a citable answer. Two phases: indexing, then answering.</p>
+    </div>
+
+    <div class="fig">
+      <div class="lane">
+        <div class="step"><div class="n">phase 1 · a</div><div class="t">Load</div><div class="d">pypdf reads each page separately, keeping the page number</div></div>
+        <div class="step"><div class="n">b</div><div class="t">Chunk</div><div class="d">~900 chars, 150 overlap, split at sentence boundaries</div></div>
+        <div class="step"><div class="n">c</div><div class="t">Embed</div><div class="d">bge-base, locally → 768 numbers per chunk</div></div>
+        <div class="step"><div class="n">d</div><div class="t">Store</div><div class="d">ChromaDB with source, page, category, company</div></div>
+      </div>
+      <div class="fig-cap"><b>Figure 2.</b> Indexing — runs once per document, not per question. 11 PDFs → 77 chunks in about 47 seconds.</div>
+    </div>
+
+    <div class="fig">
+      <div class="lane">
+        <div class="step"><div class="n">phase 2 · a</div><div class="t">Embed question</div><div class="d">same model, so the numbers are comparable</div></div>
+        <div class="step"><div class="n">b</div><div class="t">Search</div><div class="d">cosine similarity → top 5 chunks</div></div>
+        <div class="step"><div class="n">c</div><div class="t">Build context</div><div class="d">numbered [1]…[5] so the model can cite</div></div>
+        <div class="step"><div class="n">d</div><div class="t">Generate</div><div class="d">"use only the context; say you don't know otherwise"</div></div>
+        <div class="step"><div class="n">e</div><div class="t">Filter sources</div><div class="d">show only the chunks actually cited</div></div>
+      </div>
+      <div class="fig-cap"><b>Figure 3.</b> Answering — runs per question, about a second.</div>
+    </div>
+
+    <div class="wrap" style="padding-left:0;padding-right:0">
+      <h3>Why overlapping chunks</h3>
+      <p>
+        Chunks overlap by 150 characters because a sentence split across a boundary
+        would otherwise be retrievable from neither half. The splitter also prefers to
+        break at a paragraph or sentence end rather than mid-word.
+      </p>
+
+      <h3>Why chunk IDs are content hashes</h3>
+      <p>
+        Each chunk's ID includes a hash of its text, so an edited document produces new
+        IDs. That has a consequence worth understanding, because it caused a real bug:
+      </p>
+
+      <div class="note stop">
+        <b>Fixed: the assistant cited a superseded policy</b>
+        Re-uploading an edited policy created chunks with new IDs, and the old chunks
+        <em>remained</em> — so both versions were searchable and the assistant could cite
+        the outdated rule alongside the current one. In a compliance tool this is the
+        worst kind of bug: confidently correct-sounding and wrong. The fix is one line —
+        <code>index_file()</code> now deletes by source before re-indexing.
+      </div>
+
+      <h3>Citations name the issuing organisation</h3>
+      <p>
+        Each chunk stores which company published the document, so a citation reads
+        <code>Orbis · Leave_and_Time_Off_Policy p2</code>. This mattered because the
+        original corpus mixed several companies' published policies — the metadata makes
+        the provenance visible rather than implied.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ NL SQL -->
+<section id="nlsql">
+  <div class="wide">
+    <div class="s-head" style="max-width:var(--measure);margin-left:auto;margin-right:auto">
+      <div class="s-num">Engine · 3 of 4</div>
+      <h2>Natural language to SQL</h2>
+      <p><code>rag_engine/nl_to_sql.py</code> — the most safety-critical file in the project.</p>
+    </div>
+
+    <div class="wrap" style="padding-left:0;padding-right:0">
+      <p>
+        Letting a language model write SQL against employee records is the riskiest
+        thing Orbis does. Five independent layers stand between the question and the
+        database, on the assumption that the model <em>will</em> sometimes be wrong.
+      </p>
+    </div>
+
+    <div class="fig">
+      <div class="flow">
+        <div class="node"><div class="t">"how many casual leaves do I have left?"</div></div>
+        <div class="arrow"></div>
+        <div class="node ai"><div class="t">1 · Generate with worked examples</div><div class="d">6 nearest of 18 examples, chosen by embedding similarity</div></div>
+        <div class="arrow"></div>
+        <div class="node"><div class="t">2 · Unknown-column check</div><div class="d">invented column → regenerate once with the error</div></div>
+        <div class="arrow"></div>
+        <div class="node no"><div class="t">3 · Scope guard <span class="pill no">security boundary</span></div><div class="d">must be a plain single-table read of the caller's own row</div></div>
+        <div class="arrow"></div>
+        <div class="node no"><div class="t">4 · Statement validator</div><div class="d">SELECT only · no UNION, comments, semicolons, PersonalEmail</div></div>
+        <div class="arrow"></div>
+        <div class="node db"><div class="t">5 · Read-only database user</div><div class="d">orbis_user holds SELECT and nothing else</div></div>
+      </div>
+      <div class="fig-cap"><b>Figure 4.</b> Defence in depth. Layer 5 holds even if layers 1–4 are all bypassed: the account has no privilege to write.</div>
+    </div>
+
+    <div class="wrap" style="padding-left:0;padding-right:0">
+      <h3>Why worked examples replaced written rules</h3>
+      <p>
+        The prompt originally described rules in prose. Rules accumulated and began to
+        contradict each other — the word "pending" in a leave question dragged in a POSH
+        training filter, because a rule had explained what "pending POSH" meant. Small
+        models follow demonstrations far more reliably than descriptions.
+      </p>
+
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>Question</th><th>Rules-based prompt</th><th>Few-shot prompt</th></tr></thead>
+          <tbody>
+            <tr><td>"leaves pending for me"</td><td class="num"><span class="pill no">POSH filter + garbage</span></td><td class="num"><span class="pill ok">3 leave balances, scoped</span></td></tr>
+            <tr><td>"casual leaves I have left"</td><td class="num"><span class="pill no">all 48 rows</span></td><td class="num"><span class="pill ok">CasualLeaveBalance, scoped</span></td></tr>
+            <tr><td>"when is my next appraisal"</td><td class="num"><span class="pill no">LastAppraisalDate</span></td><td class="num"><span class="pill ok">NextAppraisalDate</span></td></tr>
+            <tr><td>"employees per department"</td><td class="num"><span class="pill no">no COUNT, no GROUP BY</span></td><td class="num"><span class="pill ok">COUNT + GROUP BY + ORDER</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Example selection is dynamic</h3>
+      <p>
+        All 18 examples in the prompt would be noise. Instead the question is embedded —
+        reusing the model already loaded for policy search — and the 6 nearest examples
+        are included. Ask about leave and you get leave examples; ask about headcount and
+        you get aggregate examples.
+      </p>
+
+      <h3>The scope guard, in detail</h3>
+      <p>
+        A matching <code>WHERE EmployeeID = 'EMP1001'</code> is <em>not</em> proof that a
+        query is safe. Anything that widens the result set alongside it leaks other
+        people's records. The guard therefore rejects far more than it accepts:
+      </p>
+
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>Generated SQL (caller = EMP1001)</th><th>Verdict</th><th>Reason</th></tr></thead>
+          <tbody>
+            <tr><td><code>… WHERE EmployeeID = 'EMP1001'</code></td><td><span class="pill ok">allow</span></td><td>plain single-table read of one row</td></tr>
+            <tr><td><code>… WHERE EmployeeID='EMP1001' OR Department='HR'</code></td><td><span class="pill no">block</span></td><td><code>OR</code> widens beyond the caller</td></tr>
+            <tr><td><code>… UNION SELECT * FROM employees</code></td><td><span class="pill no">block</span></td><td>second statement returns everyone</td></tr>
+            <tr><td><code>… WHERE EmployeeID = 'EMP10011'</code></td><td><span class="pill no">block</span></td><td>prefix of the caller's ID, different person</td></tr>
+            <tr><td><code>… WHERE ManagerID = 'EMP1001'</code></td><td><span class="pill no">block</span></td><td>their reports, not them</td></tr>
+            <tr><td><code>… WHERE Dept=(SELECT Dept … 'EMP1001')</code></td><td><span class="pill no">block</span></td><td>sub-select widens the outer query</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note stop">
+        <b>The ManagerID case is instructive</b>
+        When employee IDs became strings like <code>EMP1001</code>, a naive check for
+        "the caller's ID appears next to an ID column" would have accepted
+        <code>WHERE ManagerID = 'EMP1001'</code> — quietly returning every direct
+        report's salary to their manager. The guard now requires the column to be
+        exactly <code>EmployeeID</code>. Being wrong here is not a bug report, it is a
+        data breach.
+      </div>
+
+      <h3>Administrators are a separate case</h3>
+      <p>
+        Admins are not restricted to their own row — but "my leave balance" still has to
+        mean someone. Two distinct parameters express this:
+      </p>
+      <dl class="kv">
+        <dt>employee_id</dt><dd>Restricts the caller to their own row. Enforced after generation. Employees only.</dd>
+        <dt>caller_id</dt><dd>Says who "me" refers to. Enables self-queries without restricting org-wide ones. Everyone.</dd>
+      </dl>
+      <p>
+        Before this split, an admin asking "how many leaves do I have?" got a query
+        filtered by <code>'EMP1001'</code> — a value the model had copied from an example
+        in the schema description. It was right by accident, and would have been wrong
+        for any other administrator.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ VERIFIER -->
+<section id="verifier">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="s-num">Engine · 4 of 4</div>
+      <h2>The verifier</h2>
+      <p><code>rag_engine/verifier.py</code> — 45 lines that can veto any answer.</p>
+    </div>
+
+    <p>
+      After the answer is written but before anyone sees it, a second model receives the
+      retrieved context and the generated answer, and grades one thing: is every claim
+      supported? It must reply in a fixed shape.
+    </p>
+
+<pre>GROUNDED|0.99      <span class="c">→ release the answer with its citations</span>
+UNGROUNDED|0.20    <span class="c">→ replace with "I don't know based on the provided documents"</span></pre>
+
+    <h3>It fails closed</h3>
+    <p>
+      If the verifier cannot be reached, the answer is withheld. The original code did
+      the opposite — an unreachable checker meant answers passed through marked
+      "verified", which inverts the guarantee at exactly the moment it matters.
+    </p>
+
+    <div class="note warn">
+      <b>Failing closed has a cost, and it needed a second fix</b>
+      Once the verifier failed closed, an unrelated bug made it fail <em>constantly</em>:
+      its token budget was too small for the reasoning model, so it returned nothing and
+      every correct answer was suppressed. Two lessons — fail-closed only helps if the
+      thing rarely fails, and "the answer was withheld" must be distinguishable from
+      "the checker is down". The response now carries both states separately, because
+      they are also treated differently in the audit log.
+    </div>
+
+    <h3>A privacy interaction worth knowing about</h3>
+    <p>
+      The audit log deliberately hides employees' question text from administrators,
+      showing it only for <em>blocked</em> entries an admin must investigate. When the
+      verifier began failing closed, every answer became "blocked" — which would have
+      exposed every employee's questions during an outage. Two safety features,
+      individually sound, combining badly. Separating "blocked" from "unavailable" fixed
+      both.
+    </p>
+  </div>
+</section>
+
+<!-- ============================================ SECURITY -->
+<section id="security">
+  <div class="wide">
+    <div class="s-head" style="max-width:var(--measure);margin-left:auto;margin-right:auto">
+      <div class="s-num">Application</div>
+      <h2>The security model</h2>
+      <p>Three database identities, chosen so that a mistake in code cannot become a breach.</p>
+    </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Identity</th><th>Database</th><th>Privileges</th><th>Used by</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>orbis_user</code></td><td>orbis_hr</td>
+            <td><span class="pill ok">SELECT only</span></td>
+            <td>The NL→SQL engine — the only identity the LLM's SQL ever runs as</td>
+          </tr>
+          <tr>
+            <td><code>orbis_hr_admin</code></td><td>orbis_hr.employees</td>
+            <td><span class="pill adm">SELECT INSERT UPDATE DELETE</span></td>
+            <td>The admin Employees screen only. Never reachable from the AI path.</td>
+          </tr>
+          <tr>
+            <td><code>orbis_app</code></td><td>orbis_app</td>
+            <td><span class="pill adm">ALL</span></td>
+            <td>Accounts, chats, audit. <b>No access to HR data at all.</b></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="wrap" style="padding-left:0;padding-right:0">
+      <p>
+        The separation means a hostile prompt that defeats every software check still
+        cannot write to the database, because the connection it arrives on holds no write
+        privilege. Software checks are the first line; database privileges are the one
+        that has to hold.
+      </p>
+
+      <h3>Other controls</h3>
+      <div class="grid g2">
+        <div class="card"><h4>Sessions expire</h4><p>Bearer tokens are valid 7 days and can be revoked. Sign-out invalidates server-side, not just in the browser.</p></div>
+        <div class="card"><h4>Login throttling</h4><p>8 failed attempts per address per 5 minutes.</p></div>
+        <div class="card"><h4>Pagination capped</h4><p>Hard ceiling of 200 rows per request, so no single call can pull the table.</p></div>
+        <div class="card"><h4>Private columns blocked</h4><p><code>PersonalEmail</code> is rejected by the validator — the AI can never select it.</p></div>
+        <div class="card"><h4>Errors reveal nothing</h4><p>Driver messages are logged, never returned; they leak schema details.</p></div>
+        <div class="card"><h4>Audit redaction</h4><p>Admins see metadata for normal chats; question text only for blocked entries.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ IDENTITY -->
+<section id="identity">
+  <div class="wide">
+    <div class="s-head" style="max-width:var(--measure);margin-left:auto;margin-right:auto">
+      <div class="s-num">Application</div>
+      <h2>Identity and onboarding</h2>
+      <p>How someone gets an account — and why they cannot simply claim one.</p>
+    </div>
+
+    <div class="wrap" style="padding-left:0;padding-right:0">
+      <div class="note stop">
+        <b>The vulnerability this design exists to prevent</b>
+        Registration originally accepted an <code>employee_id</code> from the request
+        body and stored it unchecked. Anyone could sign up claiming employee 2001 and
+        read that person's salary and appraisal history. The fix is architectural: the
+        client never supplies an identity at all — it is derived server-side from the
+        company email address on the HR record.
+      </div>
+    </div>
+
+    <div class="fig">
+      <div class="flow">
+        <div class="node"><div class="t">HR adds a new hire</div><div class="d">name + personal email + department</div></div>
+        <div class="arrow"></div>
+        <div class="node ok"><div class="t">Server allocates identity</div><div class="d">next free EMP id · meera.krishnan@orbis.com minted from the name</div></div>
+        <div class="arrow"></div>
+        <div class="node"><div class="t">Single-use invitation</div><div class="d">random token, 7-day expiry, emailed to the personal address</div></div>
+        <div class="arrow"></div>
+        <div class="node"><div class="t">New hire sets a password</div><div class="d">/?invite=… — the link proves they hold that inbox</div></div>
+        <div class="arrow"></div>
+        <div class="node ok"><div class="t">Account bound to the HR record</div><div class="d">employee_id comes from the invitation, never from the browser</div></div>
+      </div>
+      <div class="fig-cap"><b>Figure 5.</b> Invitation onboarding. Possession of the personal inbox is what authenticates the person — the same principle as any password reset.</div>
+    </div>
+
+    <div class="wrap" style="padding-left:0;padding-right:0">
+      <h3>Company addresses must be unique, and names are not</h3>
+      <p>
+        Addresses are generated from names, which required handling a real property of
+        the data. The original dataset had <strong>1,200 distinct names across 99,999
+        employees</strong> — one name shared by 112 people. Generation appends a suffix
+        until the address is free, exactly as real employers do:
+      </p>
+<pre>rekha.tiwari@orbis.com
+rekha.tiwari2@orbis.com
+rekha.tiwari3@orbis.com
+…
+rekha.tiwari112@orbis.com   <span class="c"># all 112 resolve uniquely</span></pre>
+      <p>
+        Accents are folded (<code>José Núñez → jose.nunez</code>), punctuation dropped,
+        and an empty name falls back to <code>employee</code>.
+      </p>
+
+      <h3>Two ways in, one identity source</h3>
+      <div class="grid g2">
+        <div class="card"><h4>Invited</h4><p>New hires. HR creates the record; the link goes to their personal inbox. Only the inbox holder can activate it.</p></div>
+        <div class="card"><h4>Self-service</h4><p>Existing staff already in the HR system register with the company address HR issued. Unknown addresses are refused.</p></div>
+      </div>
+
+      <h3>Granting admin rights</h3>
+      <p>
+        Creating the first administrator is a bootstrap problem — granting admin rights
+        requires being an admin — so it is done on the machine, not over the network:
+        <code>python -m app.provision create-admin</code>. Afterwards, admins grant
+        access through the interface, with guardrails enforced server-side:
+      </p>
+      <ul>
+        <li>An admin cannot revoke their own access — they could not undo it.</li>
+        <li>The last administrator cannot be demoted — the app would become unadministrable.</li>
+        <li>Role changes invalidate existing sessions, so new permissions apply immediately.</li>
+        <li>Every change is audited.</li>
+      </ul>
+
+      <h3>Employees are never deleted</h3>
+      <p>
+        Departure sets <code>Status = 'exited'</code>, disables the login and drops its
+        sessions. Employee IDs are never reused. A deleted row whose ID was later
+        reissued would hand a departed colleague's account to whoever inherited the
+        number — and the audit trail references those IDs permanently.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ DATA -->
+<section id="data">
+  <div class="wide">
+    <div class="s-head" style="max-width:var(--measure);margin-left:auto;margin-right:auto">
+      <div class="s-num">Application</div>
+      <h2>The data model</h2>
+      <p>Two databases, deliberately separate.</p>
+    </div>
+
+    <div class="wrap" style="padding-left:0;padding-right:0">
+      <h3>orbis_hr — the HR record</h3>
+      <p>One table, 25 columns, 48 employees. Every column exists to answer a real question:</p>
+    </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Column group</th><th>Columns</th><th>Answers</th></tr></thead>
+        <tbody>
+          <tr><td>Identity</td><td><code>EmployeeID</code> <code>FullName</code> <code>Email</code> <code>PersonalEmail</code></td><td>Who is this, how do they sign in</td></tr>
+          <tr><td>Position</td><td><code>Role</code> <code>Department</code> <code>Location</code> <code>EmploymentType</code></td><td>"how many people are in Legal?"</td></tr>
+          <tr><td>Reporting</td><td><code>ManagerID</code> <code>ManagerName</code></td><td>"who is my manager?"</td></tr>
+          <tr><td>Leave</td><td><code>{Casual,Sick,Earned}Leave{Balance,Used}</code></td><td>"how many casual leaves do I have left?"</td></tr>
+          <tr><td>Performance</td><td><code>LastAppraisalDate</code> <code>NextAppraisalDate</code> <code>PerformanceRating</code></td><td>"when is my next appraisal?"</td></tr>
+          <tr><td>Compliance</td><td><code>POSHTrainingCompleted</code> <code>POSHTrainingDate</code></td><td>"how many have pending POSH training?"</td></tr>
+          <tr><td>Lifecycle</td><td><code>DateOfJoining</code> <code>Status</code></td><td>Tenure; excludes departed staff</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="wrap" style="padding-left:0;padding-right:0">
+      <div class="note">
+        <b>Why the dataset was replaced</b>
+        An earlier 100,000-row dataset had no email column, no leave balances, no
+        appraisal dates and no POSH field — so three of the four headline demo questions
+        were unanswerable. It also had 1,200 names across 99,999 rows. The current
+        48-row set is smaller and far more useful: every advertised question has a real
+        answer.
+      </div>
+
+      <h3>orbis_app — application state</h3>
+      <div class="grid g3">
+        <div class="card"><div class="meta">users</div><p>Accounts, roles, the link to an HR record.</p></div>
+        <div class="card"><div class="meta">sessions</div><p>Bearer tokens with expiry.</p></div>
+        <div class="card"><div class="meta">conversations · messages</div><p>Chat history; last 6 messages become memory.</p></div>
+        <div class="card"><div class="meta">audit_log</div><p>Who asked what, when, which route, latency, blocked or not.</p></div>
+        <div class="card"><div class="meta">policy_files</div><p>Uploaded documents and chunk counts.</p></div>
+        <div class="card"><div class="meta">invites</div><p>Single-use onboarding tokens with expiry.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ TREE -->
+<section id="tree">
+  <div class="wide">
+    <div class="s-head" style="max-width:var(--measure);margin-left:auto;margin-right:auto">
+      <div class="s-num">Reference</div>
+      <h2>Folder map</h2>
+      <p>Every directory, and the one sentence that explains why it exists.</p>
+    </div>
+
+    <div class="tree">
+<span class="dir">Orbis_HR/</span>
+├── <span class="dir">app/</span>                        <span class="cmt">FastAPI application — HTTP, auth, orchestration</span>
+│   ├── main.py                 <span class="cmt">entry point, CORS, error handler</span>
+│   ├── auth.py                 <span class="cmt">passwords, tokens, role dependencies</span>
+│   ├── db.py                   <span class="cmt">app schema, connection pool, migrations</span>
+│   ├── schemas.py              <span class="cmt">request/response shapes (Pydantic)</span>
+│   ├── provision.py            <span class="cmt">operator CLI — admins, data loading</span>
+│   ├── <span class="dir">routers/</span>                <span class="cmt">one file per URL group; HTTP only</span>
+│   └── <span class="dir">services/</span>               <span class="cmt">business logic; no HTTP knowledge</span>
+├── <span class="dir">rag_engine/</span>                 <span class="cmt">the AI — usable without the web app</span>
+│   ├── router.py               <span class="cmt">sql / rag / chat</span>
+│   ├── rag_pipeline.py         <span class="cmt">index and search policies</span>
+│   ├── nl_to_sql.py            <span class="cmt">question → SQL → rows</span>
+│   ├── verifier.py             <span class="cmt">grounded or not</span>
+│   ├── llm.py                  <span class="cmt">provider layer (Groq / Hugging Face)</span>
+│   ├── embeddings.py           <span class="cmt">local sentence-transformers</span>
+│   ├── vector_store.py         <span class="cmt">ChromaDB wrapper</span>
+│   ├── document_loader.py      <span class="cmt">PDF/DOCX/TXT → text + metadata</span>
+│   ├── text_splitter.py        <span class="cmt">chunking</span>
+│   ├── sql_examples.py         <span class="cmt">18 worked examples + selection</span>
+│   └── settings.py             <span class="cmt">all configuration, read from .env</span>
+├── <span class="dir">Frontend/</span>                   <span class="cmt">React + TypeScript dashboard</span>
+│   └── <span class="dir">src/</span>
+│       ├── <span class="dir">api/</span>                <span class="cmt">axios client + types mirroring the API</span>
+│       ├── <span class="dir">auth/</span>               <span class="cmt">session context</span>
+│       ├── <span class="dir">features/</span>           <span class="cmt">chat · policies · employees · audit · users</span>
+│       └── <span class="dir">pages/</span>              <span class="cmt">login, employee app, admin app</span>
+├── <span class="dir">policy_documents/</span>           <span class="cmt">11 PDFs — the RAG corpus</span>
+├── <span class="dir">database_data/</span>              <span class="cmt">employees.csv — 48 records</span>
+├── <span class="dir">data/chroma/</span>                <span class="cmt">vector index (generated, not in git)</span>
+├── <span class="dir">scripts/</span>                    <span class="cmt">MySQL bootstrap + diagnostics</span>
+├── <span class="dir">tests/</span>                      <span class="cmt">45-check end-to-end suite</span>
+├── setup.py / setup.sh / setup.bat    <span class="cmt">one-command install, both platforms</span>
+└── start.py / start.sh / start.bat    <span class="cmt">run backend + frontend together</span>
+    </div>
+
+    <div class="wrap" style="padding-left:0;padding-right:0">
+      <div class="note">
+        <b>The one structural rule</b>
+        <code>routers/</code> handles HTTP and nothing else; <code>services/</code> holds
+        logic and knows nothing about HTTP; <code>rag_engine/</code> knows nothing about
+        the web application at all. That is why the AI engine can be run from a script,
+        and why the test suite can drive services directly.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ FILES: RAG -->
+<section id="files-rag">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="s-num">Reference</div>
+      <h2>Files · rag_engine</h2>
+      <p>Expand any file for its purpose, key functions and the reasoning behind it.</p>
+    </div>
+
+    <details class="filecard"><summary>llm.py <span class="loc">143 lines</span></summary>
+      <div class="body">
+        <p>The only file that talks to a language model. Two providers behind one
+        interface, so nothing downstream knows which is in use.</p>
+        <ul>
+          <li><code>chat()</code> — single-turn instruction call</li>
+          <li><code>converse()</code> — multi-turn, used for small talk with memory</li>
+          <li><code>_groq_complete()</code> / <code>_hf_complete()</code> — the drivers</li>
+          <li><code>available_models()</code> — lists what the provider serves</li>
+        </ul>
+        <p>Raises a specific <code>LLMError</code> per failure — bad key, rate limit,
+        empty response — because "something went wrong" cost hours of debugging when a
+        reasoning model silently returned nothing.</p>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>nl_to_sql.py <span class="loc">285 lines · most safety-critical</span></summary>
+      <div class="body">
+        <ul>
+          <li><code>build_sql()</code> — generate, validate columns, retry once on failure</li>
+          <li><code>generate_sql_from_nl()</code> — assembles schema + examples + scope</li>
+          <li><code>is_scoped_to()</code> — <b>the security boundary</b>; fails closed</li>
+          <li><code>validate_sql()</code> — single read-only SELECT, no UNION/comments/PersonalEmail</li>
+          <li><code>unknown_columns()</code> — catches invented columns before execution</li>
+          <li><code>_clean()</code> — extracts SQL from whatever prose the model wrapped it in</li>
+          <li><code>run_sql()</code> — executes as the read-only user with a row limit</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>sql_examples.py <span class="loc">146 lines</span></summary>
+      <div class="body">
+        <p>18 question→SQL pairs covering every column family and query shape, plus
+        similarity-based selection.</p>
+        <ul>
+          <li><code>EXAMPLES</code> — the bank; <code>{me}</code> is substituted with the caller's ID</li>
+          <li><code>select()</code> — embeds the question, returns the 6 nearest examples</li>
+          <li><code>render()</code> — formats them for the prompt</li>
+        </ul>
+        <p>Reuses the embedding model already loaded for policy search, so this adds no
+        dependency and no extra download.</p>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>rag_pipeline.py <span class="loc">51 lines</span></summary>
+      <div class="body">
+        <p>Coordinates loading, chunking, embedding and storage. Short by design — it
+        composes the other modules rather than doing work itself.</p>
+        <ul>
+          <li><code>index_policy_documents()</code> — full rebuild</li>
+          <li><code>index_file()</code> — one uploaded file; <b>deletes old chunks first</b></li>
+          <li><code>search_policy()</code> — embed the question, return the top matches</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>vector_store.py <span class="loc">121 lines</span></summary>
+      <div class="body">
+        <p>Everything ChromaDB. Isolated so the vector database could be swapped without
+        touching the pipeline.</p>
+        <ul>
+          <li><code>upsert_chunks()</code> — store text, embedding and metadata</li>
+          <li><code>search_chunks()</code> — cosine similarity; distance → 0–1 score</li>
+          <li><code>delete_by_source()</code> — remove one document's chunks</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>document_loader.py <span class="loc">146 lines</span></summary>
+      <div class="body">
+        <p>Turns files into text plus metadata. PDFs are read <em>per page</em>, which is
+        what allows a citation to name a page.</p>
+        <ul>
+          <li><code>load_pdf()</code> / <code>load_docx()</code> / <code>load_txt()</code></li>
+          <li><code>infer_category()</code> — filename → Leave / Conduct / Benefits / Privacy / Work</li>
+          <li><code>infer_company()</code> — issuing organisation, shown in citations</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>text_splitter.py <span class="loc">95 lines</span></summary>
+      <div class="body">
+        <ul>
+          <li><code>split_text()</code> — ~900 chars, 150 overlap, prefers sentence breaks</li>
+          <li><code>make_chunk_id()</code> — source + page + index + content hash</li>
+          <li><code>chunk_documents()</code> — carries metadata onto every chunk</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>embeddings.py <span class="loc">24 lines</span></summary>
+      <div class="body">
+        <p>Loads bge-base-en-v1.5 once (cached) and exposes two functions. The whole
+        "your text stays local" claim rests on this file being local.</p>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>router.py · verifier.py · settings.py · config.py</summary>
+      <div class="body">
+        <ul>
+          <li><b>router.py</b> (52) — one function, three outcomes, unknown falls to <code>chat</code></li>
+          <li><b>verifier.py</b> (45) — grades the answer; fails closed; reports availability separately</li>
+          <li><b>settings.py</b> (176) — every configuration value, read from <code>.env</code>. Nothing else reads the environment directly</li>
+          <li><b>config.py</b> (15) — paths, chunk sizes, embedding model name</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ============================================ FILES: APP -->
+<section id="files-app">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="s-num">Reference</div>
+      <h2>Files · app</h2>
+      <p>The web application. Routers do HTTP; services do logic.</p>
+    </div>
+
+    <details class="filecard"><summary>services/chat_service.py <span class="loc">201 lines · the spine</span></summary>
+      <div class="body">
+        <p>Orchestrates every message: route it, run the right engine, verify, save
+        memory, write the audit entry.</p>
+        <ul>
+          <li><code>handle_chat()</code> — the top-level flow</li>
+          <li><code>_handle_rag()</code> — retrieve, generate, verify</li>
+          <li><code>_handle_sql()</code> — generate, scope-check, execute</li>
+          <li><code>_handle_general()</code> — small talk with memory</li>
+          <li><code>_recent_history()</code> — last 6 messages, fetched <em>before</em> the new one is stored</li>
+          <li><code>_describe_rows()</code> — turns a result set into a sentence</li>
+        </ul>
+        <p>Each engine is wrapped so a failure degrades to a readable message rather
+        than a 500 — and every swallowed exception is logged, after a transient outage
+        once looked like a deliberate greeting.</p>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>services/onboarding_service.py <span class="loc">129 lines</span></summary>
+      <div class="body">
+        <ul>
+          <li><code>issue_invite()</code> — single-use token, 7-day expiry, emails the link</li>
+          <li><code>accept_invite()</code> — creates the account bound to the HR record</li>
+          <li><code>self_register()</code> — existing staff, identity from the HR lookup</li>
+          <li><code>_hr_lookup()</code> — read-only lookup by company email</li>
+        </ul>
+        <p>The client never supplies <code>employee_id</code> in either path.</p>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>services/employee_service.py <span class="loc">219 lines</span></summary>
+      <div class="body">
+        <ul>
+          <li><code>create()</code> — allocate ID, mint email, insert, issue invitation</li>
+          <li><code>delete()</code> — soft delete: mark exited, disable login, drop sessions</li>
+          <li><code>reinstate()</code> — the counterpart hard deletion could never offer</li>
+          <li><code>_next_employee_id()</code> — MAX over <em>all</em> rows, so IDs are never reused</li>
+        </ul>
+        <p>Uses the read-write HR connection — deliberately a different identity from
+        the one the AI uses.</p>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>services/identity.py · mailer.py · audit_service.py · policy_service.py</summary>
+      <div class="body">
+        <ul>
+          <li><b>identity.py</b> (47) — <code>slugify_name()</code>, <code>generate_email()</code> with collision suffixes</li>
+          <li><b>mailer.py</b> (79) — console or SMTP behind one <code>send()</code>; console is default so a test invite cannot reach a stranger</li>
+          <li><b>audit_service.py</b> (114) — <code>log_event()</code>, stats, CSV export, and <code>_redact()</code> which hides employees' chat text from admins</li>
+          <li><b>policy_service.py</b> (101) — upload, auto-index, view, delete, library stats</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>auth.py · db.py · main.py · schemas.py · provision.py</summary>
+      <div class="body">
+        <ul>
+          <li><b>auth.py</b> (68) — bcrypt (clipped to its 72-byte limit), opaque tokens, session TTL, <code>require_admin</code></li>
+          <li><b>db.py</b> (219) — schema, 16-connection pool, idempotent column/index migrations</li>
+          <li><b>main.py</b> (78) — app assembly, CORS, and a catch-all handler so unexpected errors return JSON rather than a bare connection reset</li>
+          <li><b>schemas.py</b> (189) — Pydantic models; the API contract</li>
+          <li><b>provision.py</b> (254) — operator CLI, deliberately off the network</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>routers/ <span class="loc">chat · auth · employees · policies · audit · users</span></summary>
+      <div class="body">
+        <p>Thin by design — parse, authorise, delegate. <code>chat.py</code> also holds a
+        per-user rate limit, since each question costs several model calls.</p>
+        <div class="tbl-scroll" style="margin-top:12px">
+          <table>
+            <thead><tr><th>Router</th><th>Endpoints</th><th>Access</th></tr></thead>
+            <tbody>
+              <tr><td>auth.py</td><td>signup · login · logout · me · invite</td><td>public</td></tr>
+              <tr><td>chat.py</td><td>chat · conversations · suggestions</td><td>signed in</td></tr>
+              <tr><td>employees.py</td><td>CRUD · reinstate</td><td><span class="pill adm">admin</span></td></tr>
+              <tr><td>policies.py</td><td>upload · list · view · download · delete</td><td><span class="pill adm">admin</span></td></tr>
+              <tr><td>audit.py</td><td>list · stats · CSV export</td><td><span class="pill adm">admin</span></td></tr>
+              <tr><td>users.py</td><td>list · change role</td><td><span class="pill adm">admin</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ============================================ FILES: FE -->
+<section id="files-fe">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="s-num">Reference</div>
+      <h2>Files · Frontend</h2>
+      <p>React 19 + TypeScript. Types mirror the API, so a backend change breaks the build rather than the browser.</p>
+    </div>
+
+    <details class="filecard"><summary>features/chat/ChatView.tsx <span class="loc">273 lines</span></summary>
+      <div class="body">
+        <p>The main interface. Beyond messages it surfaces what the system did:
+        the route badge, the citation cards, the generated SQL with its result table, and
+        the verification bar.</p>
+        <p>Showing the SQL is deliberate. A user who can see the query that produced their
+        answer can judge whether to trust it.</p>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>features/ <span class="loc">policies · employees · audit · users</span></summary>
+      <div class="body">
+        <ul>
+          <li><b>PolicyLibrary.tsx</b> (215) — drag-and-drop upload, auto-index, search, delete</li>
+          <li><b>EmployeeManager.tsx</b> (201) — add a hire, view company emails, exit and reinstate</li>
+          <li><b>AuditLog.tsx</b> (114) — the trail, respecting server-side redaction</li>
+          <li><b>UserAdmin.tsx</b> (117) — grant admin rights; mirrors the server guardrails so the UI never offers a refused action</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="filecard"><summary>api/ · auth/ · pages/</summary>
+      <div class="body">
+        <ul>
+          <li><b>api/client.ts</b> (44) — axios with token injection and 401 handling</li>
+          <li><b>api/types.ts</b> (123) — TypeScript mirrors of the Pydantic schemas</li>
+          <li><b>auth/AuthContext.tsx</b> (79) — session state, login, logout, invitations</li>
+          <li><b>pages/LoginPage.tsx</b> (174) — sign in, activate, and set-password-from-invite</li>
+          <li><b>pages/AdminApp.tsx</b> (43) — five tabs; <b>EmployeeApp.tsx</b> (11) — chat only</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ============================================ TESTING -->
+<section id="testing">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="s-num">Reference</div>
+      <h2>Testing</h2>
+      <p><code>tests/e2e_check.py</code> — 45 checks against the running system.</p>
+    </div>
+
+    <p>
+      The suite drives the real API against the real database and the real models. It
+      creates a throwaway employee and account, exercises every flow, and removes them —
+      so it is safe to run against a working install.
+    </p>
+
+<pre>python -m tests.e2e_check --admin-email you@orbis.com --admin-password '…'
+python -m tests.e2e_check --quick     <span class="c"># skip the four model calls</span></pre>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Area</th><th class="num">Checks</th><th>Notable</th></tr></thead>
+        <tbody>
+          <tr><td>Schema &amp; data</td><td class="num">4</td><td>every employee has a unique company address</td></tr>
+          <tr><td>Health</td><td class="num">2</td><td>API responds, index populated</td></tr>
+          <tr><td>Admin access</td><td class="num">6</td><td>pagination cap enforced</td></tr>
+          <tr><td>Onboarding</td><td class="num">10</td><td>client cannot choose its own EmployeeID; invites single-use</td></tr>
+          <tr><td>Self-service</td><td class="num">2</td><td>unknown address refused</td></tr>
+          <tr><td>Roles</td><td class="num">5</td><td>no self-demotion; promotion invalidates sessions</td></tr>
+          <tr><td>Lifecycle</td><td class="num">6</td><td>exited employee locked out, record preserved</td></tr>
+          <tr><td>AI pipeline</td><td class="num">4</td><td>SQL scoped to the caller</td></tr>
+          <tr><td>Audit</td><td class="num">3</td><td>employees' chat text hidden from admins</td></tr>
+          <tr><td>Cleanup</td><td class="num">1</td><td>test data removed</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <b>What is actually being tested</b>
+      Not "does the button work" but "does the security property hold". The valuable
+      checks assert that things are <em>impossible</em>: a client cannot choose its own
+      identity, an invite cannot be used twice, an admin cannot lock everyone out, an
+      employee's questions are not visible to their HR department.
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ LIMITS -->
+<section id="limits">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="s-num">Reference</div>
+      <h2>Limits and next steps</h2>
+      <p>What this deliberately does not do, and what would come next.</p>
+    </div>
+
+    <h3>Known limits</h3>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Limit</th><th>Why it is acceptable here</th></tr></thead>
+        <tbody>
+          <tr><td>Generation is a hosted API</td><td>Local inference needs hardware this does not have. Provider is one config line.</td></tr>
+          <tr><td>Rate limiting is in-process</td><td>Correct for one worker; a multi-process deployment would need shared state.</td></tr>
+          <tr><td>Tokens live in localStorage</td><td>Vulnerable to XSS. Production would use httpOnly cookies.</td></tr>
+          <tr><td>No password reset</td><td>Recovery is an operator action via the CLI.</td></tr>
+          <tr><td>Retrieval is dense-only</td><td>Hybrid search with re-ranking would improve recall on keyword-heavy queries.</td></tr>
+          <tr><td>Audit log is mutable</td><td>Tamper-evidence would need append-only storage or signing.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Where the work would go next</h3>
+    <div class="grid g2">
+      <div class="card"><h4>An evaluation set</h4><p>~30 graded question/answer pairs to measure retrieval precision and groundedness, so prompt changes can be judged rather than guessed at.</p></div>
+      <div class="card"><h4>Hybrid retrieval</h4><p>Combine keyword and dense search with a re-ranking pass — the single biggest lever on answer quality.</p></div>
+      <div class="card"><h4>Markdown rendering</h4><p>Answers arrive with markdown emphasis that currently displays literally.</p></div>
+      <div class="card"><h4>Streaming responses</h4><p>Tokens as they generate would make a ~1 s answer feel instant.</p></div>
+    </div>
+
+    <div class="note">
+      <b>The through-line</b>
+      Nearly every design decision here answers the same question: <em>how do we make it
+      impossible, rather than unlikely, for this to give someone the wrong answer or
+      someone else's data?</em> That is why there is a verifier as well as a careful
+      prompt, a scope guard as well as a read-only database user, and a test suite that
+      asserts what cannot happen.
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+// theme toggle — starts from the OS preference, then the viewer's choice wins
+(function () {
+  var root = document.documentElement;
+  var btn = document.getElementById('themeBtn');
+  function current() {
+    return root.getAttribute('data-theme') ||
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  }
+  btn.addEventListener('click', function () {
+    root.setAttribute('data-theme', current() === 'dark' ? 'light' : 'dark');
+  });
+})();
+
+// scroll-spy: highlight the section currently in view
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('#nav a'));
+  var map = {};
+  links.forEach(function (a) {
+    var el = document.querySelector(a.getAttribute('href'));
+    if (el) map[el.id] = a;
+  });
+  var seen = new Set();
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) seen.add(e.target.id); else seen.delete(e.target.id);
+    });
+    var first = Object.keys(map).find(function (id) { return seen.has(id); });
+    links.forEach(function (a) { a.classList.remove('on'); });
+    if (first) map[first].classList.add('on');
+  }, { rootMargin: '-8% 0px -70% 0px', threshold: 0 });
+  Object.keys(map).forEach(function (id) { io.observe(document.getElementById(id)); });
+})();
+</script>
+</body>
+</html>

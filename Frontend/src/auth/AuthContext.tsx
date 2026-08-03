@@ -10,6 +10,7 @@ interface AuthState {
    *  server-side from the company email — nothing else is sent. */
   signup: (email: string, password: string) => Promise<UserProfile>
   acceptInvite: (token: string, password: string) => Promise<UserProfile>
+  resetPassword: (token: string, password: string) => Promise<UserProfile>
   logout: () => void
 }
 
@@ -53,6 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return afterAuth(res.data.access_token)
   }
 
+  /** Complete a reset from an emailed link; the server signs the person in. */
+  async function resetPassword(token: string, password: string) {
+    const res = await api.post<TokenResponse>('/auth/reset', { token, password })
+    return afterAuth(res.data.access_token)
+  }
+
   function logout() {
     // Send the token explicitly: it is cleared before the interceptor would run.
     const token = getToken()
@@ -65,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, acceptInvite, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, acceptInvite, resetPassword, logout }}>
       {children}
     </AuthContext.Provider>
   )

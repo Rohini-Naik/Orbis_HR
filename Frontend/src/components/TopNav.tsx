@@ -1,6 +1,8 @@
-import { LogOut } from 'lucide-react'
+import { useState } from 'react'
+import { KeyRound, LogOut } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { BrandMark } from './Brand'
+import { ChangePassword } from './ChangePassword'
 
 function initials(name: string) {
   return name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
@@ -8,8 +10,10 @@ function initials(name: string) {
 
 export function TopNav() {
   const { user, logout } = useAuth()
+  const [changing, setChanging] = useState(false)
   if (!user) return null
   const isAdmin = user.role === 'admin'
+
   return (
     <div className="top-nav">
       <div className="nav-brand">
@@ -19,7 +23,7 @@ export function TopNav() {
       </div>
       <div className="nav-spacer" />
       <div className="nav-status">
-        <span className="status-dot" /> AI online · llama-3
+        <span className="status-dot" /> AI online
       </div>
       <div className="nav-user">
         <div className={`user-avatar ${isAdmin ? 'admin' : ''}`}>{initials(user.full_name)}</div>
@@ -27,13 +31,19 @@ export function TopNav() {
           <div className="user-name">{user.full_name}</div>
           <div className="user-role">
             {user.department ?? (isAdmin ? 'Admin' : 'Employee')}
-            {user.employee_id ? ` · EMP${user.employee_id}` : ''}
+            {user.employee_id ? ` · ${user.employee_id}` : ''}
           </div>
         </div>
       </div>
-      <button className="nav-logout" title="Sign out" onClick={logout}>
+      <button className="nav-logout" title="Change password" aria-label="Change password"
+        onClick={() => setChanging(true)}>
+        <KeyRound size={16} />
+      </button>
+      <button className="nav-logout" title="Sign out" aria-label="Sign out" onClick={logout}>
         <LogOut size={16} />
       </button>
+
+      {changing && <ChangePassword onClose={() => setChanging(false)} />}
     </div>
   )
 }
