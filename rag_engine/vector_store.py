@@ -1,90 +1,100 @@
-import chromadb
+"""The policy index, backed by LangChain's Chroma integration.
+
+Going through `langchain_chroma` rather than the raw client means the same
+object can be handed to a retriever and dropped into a chain, instead of every
+caller marshalling vectors and metadata itself.
+
+Search results are returned as plain dictionaries. Callers outside this module
+(the answer generator, the policy library, the startup index check) only need
+text and provenance, and keeping them free of LangChain types leaves the
+storage layer replaceable.
+"""
+import logging
+from functools import lru_cache
+from typing import Any, Dict, List
+
+from langchain_core.documents import Document
 
 from rag_engine.config import CHROMA_DB_DIR, COLLECTION_NAME
+from rag_engine.embeddings import get_embeddings
+
+logger = logging.getLogger("orbis.vectorstore")
 
 
-def get_chroma_client():
+@lru_cache(maxsize=1)
+def get_store():
+    """The persistent collection, created on first use."""
+    from langchain_chroma import Chroma
+
     CHROMA_DB_DIR.mkdir(parents=True, exist_ok=True)
-    return chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
-
-
-def get_policy_collection():
-    client = get_chroma_client()
-
-    return client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        metadata={"hnsw:space": "cosine"},
+    return Chroma(
+        collection_name=COLLECTION_NAME,
+        embedding_function=get_embeddings(),
+        persist_directory=str(CHROMA_DB_DIR),
+        # Cosine matches how the embeddings are normalised; Chroma defaults to
+        # squared L2, which would rank differently.
+        collection_metadata={"hnsw:space": "cosine"},
     )
 
 
-def reset_policy_collection():
-    client = get_chroma_client()
-
+def reset_policy_collection() -> None:
+    """Drop every chunk. Used by a full re-index."""
+    store = get_store()
     try:
-        client.delete_collection(name=COLLECTION_NAME)
+        store.delete_collection()
     except Exception:
-        pass
-
-    return client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        metadata={"hnsw:space": "cosine"},
-    )
+        logger.debug("No existing collection to drop", exc_info=True)
+    get_store.cache_clear()
+    get_store()
 
 
-def upsert_chunks(
-    chunks: list[dict],
-    embeddings: list[list[float]],
-) -> int:
+def upsert_chunks(chunks: List[Document]) -> int:
+    """Store chunks under their stable ids, replacing any with the same id."""
     if not chunks:
         return 0
-
-    collection = get_policy_collection()
-
-    collection.upsert(
-        ids=[chunk["id"] for chunk in chunks],
-        documents=[chunk["text"] for chunk in chunks],
-        metadatas=[
-            {
-                "source": chunk["source"],
-                "page": chunk["page"],
-                "category": chunk["category"],
-                "company": chunk.get("company", ""),
-                "chunk_index": chunk["chunk_index"],
-            }
-            for chunk in chunks
-        ],
-        embeddings=embeddings,
+    get_store().add_documents(
+        documents=chunks, ids=[c.metadata["chunk_id"] for c in chunks]
     )
-
     return len(chunks)
 
 
 def delete_by_source(source: str) -> None:
-    """Remove all chunks that came from a given policy file."""
-    get_policy_collection().delete(where={"source": source})
+    """Remove every chunk that came from one policy file."""
+    try:
+        get_store().delete(where={"source": source})
+    except Exception:
+        logger.warning("Could not clear existing chunks for %s", source, exc_info=True)
 
 
 def count_chunks() -> int:
-    return get_policy_collection().count()
+    return get_store()._collection.count()
 
 
 def count_by_source(source: str) -> int:
-    result = get_policy_collection().get(where={"source": source}, include=[])
+    result = get_store()._collection.get(where={"source": source}, include=[])
     return len(result.get("ids", []))
 
 
-def search_chunks(
-    query_embedding: list[float],
-    top_k: int,
-) -> list[dict]:
-    collection = get_policy_collection()
+def _to_match(doc: Document, score: float, index: int) -> Dict[str, Any]:
+    """Flatten a scored Document into the shape the rest of the app expects."""
+    meta = doc.metadata or {}
+    return {
+        "id": meta.get("chunk_id", f"chunk_{index}"),
+        "text": doc.page_content,
+        "source": meta.get("source"),
+        "page": meta.get("page"),
+        "category": meta.get("category"),
+        "company": meta.get("company"),
+        "distance": score,
+        # Chroma returns cosine distance; 1 - distance reads as similarity.
+        "score": round(1 - score, 4),
+    }
 
+
+def search_chunks(query: str, top_k: int) -> List[Dict[str, Any]]:
+    """The `top_k` chunks closest to the query, most similar first."""
     try:
-        results = collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"],
-        )
+        scored = get_store().similarity_search_with_score(query, k=top_k)
     except Exception as exc:
         # Most often a dimension mismatch: the embedding model changed but the
         # index was not rebuilt. Say so instead of surfacing the raw error.
@@ -92,31 +102,4 @@ def search_chunks(
             f"Policy search failed: {exc}. If EMBEDDING_MODEL_NAME changed, "
             "re-index with: python -m rag_engine.maintenance"
         ) from exc
-
-    documents = results.get("documents", [[]])[0]
-    metadatas = results.get("metadatas", [[]])[0]
-    distances = results.get("distances", [[]])[0]
-    ids = results.get("ids", [[]])[0]
-
-    matches = []
-
-    for chunk_id, document, metadata, distance in zip(
-        ids,
-        documents,
-        metadatas,
-        distances,
-    ):
-        matches.append(
-            {
-                "id": chunk_id,
-                "text": document,
-                "source": metadata.get("source"),
-                "page": metadata.get("page"),
-                "category": metadata.get("category"),
-                "company": metadata.get("company"),
-                "distance": distance,
-                "score": round(1 - distance, 4),
-            }
-        )
-
-    return matches
+    return [_to_match(doc, score, i) for i, (doc, score) in enumerate(scored)]

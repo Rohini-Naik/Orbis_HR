@@ -77,7 +77,7 @@ def get_file(file_id: int) -> Dict[str, Any]:
 
     path = POLICY_DOCUMENTS_DIR / row["filename"]
     pages = load_document(path) if path.exists() else []
-    return {**row, "content": "\n\n".join(p["text"] for p in pages)}
+    return {**row, "content": "\n\n".join(page.page_content for page in pages)}
 
 
 def delete(file_id: int, user: Dict[str, Any]) -> None:

@@ -1,30 +1,31 @@
+"""Indexing and retrieval over the policy corpus.
+
+Composes the loader, splitter and vector store rather than doing work itself,
+so each stage stays independently testable.
+"""
 from pathlib import Path
+from typing import Any, Dict, List
+
+from langchain_core.documents import Document
 
 from rag_engine.config import DEFAULT_TOP_K
 from rag_engine.document_loader import load_document, load_policy_documents
-from rag_engine.embeddings import embed_query, embed_texts
 from rag_engine.text_splitter import chunk_documents
 from rag_engine.vector_store import (
     delete_by_source,
+    get_store,
     reset_policy_collection,
     search_chunks,
     upsert_chunks,
 )
 
 
-def _embed_and_upsert(chunks: list[dict]) -> int:
-    if not chunks:
-        return 0
-    embeddings = embed_texts([chunk["text"] for chunk in chunks])
-    return upsert_chunks(chunks, embeddings)
-
-
-def index_policy_documents(reset: bool = True) -> dict:
-    """Full (re)index of every file in the policy folder."""
-    documents = load_policy_documents()
+def index_policy_documents(reset: bool = True) -> Dict[str, int]:
+    """(Re)index every file in the policy folder."""
+    documents: List[Document] = load_policy_documents()
     if reset:
         reset_policy_collection()
-    indexed = _embed_and_upsert(chunk_documents(documents))
+    indexed = upsert_chunks(chunk_documents(documents))
     return {"documents_loaded": len(documents), "chunks_indexed": indexed}
 
 
@@ -32,13 +33,13 @@ def index_file(file_path: Path) -> int:
     """Index a single uploaded file, replacing any earlier version of it.
 
     Chunk ids are derived from the text, so a revised document produces new ids
-    and `upsert` alone would leave the previous version's chunks in the index —
+    and an upsert alone would leave the previous version's chunks in the index —
     the assistant would then cite a superseded policy alongside the current one.
     Clearing by source first makes re-uploading a genuine replacement.
     """
     path = Path(file_path)
     delete_by_source(path.name)
-    return _embed_and_upsert(chunk_documents(load_document(path)))
+    return upsert_chunks(chunk_documents(load_document(path)))
 
 
 def delete_file(source: str) -> None:
@@ -46,6 +47,15 @@ def delete_file(source: str) -> None:
     delete_by_source(source)
 
 
-def search_policy(question: str, top_k: int = DEFAULT_TOP_K) -> dict:
-    matches = search_chunks(embed_query(question), top_k=top_k)
-    return {"question": question, "top_k": top_k, "results": matches}
+def get_retriever(top_k: int = DEFAULT_TOP_K):
+    """The corpus as a LangChain retriever, for composing into a chain."""
+    return get_store().as_retriever(search_kwargs={"k": top_k})
+
+
+def search_policy(question: str, top_k: int = DEFAULT_TOP_K) -> Dict[str, Any]:
+    """Retrieve with scores, for callers that display relevance."""
+    return {
+        "question": question,
+        "top_k": top_k,
+        "results": search_chunks(question, top_k=top_k),
+    }

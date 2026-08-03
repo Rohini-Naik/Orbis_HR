@@ -1,10 +1,17 @@
-from pathlib import Path
+"""Policy documents, loaded as LangChain Documents.
 
-from docx import Document as DocxDocument
-from pypdf import PdfReader
+Implemented as a `BaseLoader` rather than using a stock loader because the
+built-in ones carry only a path and a page number, and citations here need more
+than that: which category a document belongs to for the library filters, and
+which organisation issued it so a reader can see where an answer came from.
+"""
+from pathlib import Path
+from typing import Iterator, List
+
+from langchain_core.document_loaders import BaseLoader
+from langchain_core.documents import Document
 
 from rag_engine.config import POLICY_DOCUMENTS_DIR
-
 
 SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt"}
 
@@ -60,88 +67,67 @@ def infer_category(file_name: str) -> str:
     return "General"
 
 
-def load_txt(file_path: Path) -> list[dict]:
-    text = file_path.read_text(encoding="utf-8", errors="ignore")
+class PolicyDocumentLoader(BaseLoader):
+    """Load one policy file as a Document per page.
 
-    return [
-        {
-            "text": text,
-            "source": file_path.name,
-            "page": 1,
-            "category": infer_category(file_path.name),
-            "company": infer_company(file_path.name),
+    Splitting by page rather than by file is what allows a citation to name a
+    page; a whole-document Document would lose that.
+    """
+
+    def __init__(self, file_path: Path | str):
+        self.path = Path(file_path)
+
+    def _metadata(self, page: int) -> dict:
+        return {
+            "source": self.path.name,
+            "page": page,
+            "category": infer_category(self.path.name),
+            "company": infer_company(self.path.name),
         }
-    ]
+
+    def lazy_load(self) -> Iterator[Document]:
+        suffix = self.path.suffix.lower()
+        if suffix == ".pdf":
+            yield from self._load_pdf()
+        elif suffix == ".docx":
+            yield from self._load_docx()
+        elif suffix == ".txt":
+            yield from self._load_txt()
+
+    def _load_pdf(self) -> Iterator[Document]:
+        from pypdf import PdfReader
+
+        for number, page in enumerate(PdfReader(str(self.path)).pages, start=1):
+            text = (page.extract_text() or "").strip()
+            if text:  # scanned or empty pages carry nothing to retrieve
+                yield Document(page_content=text, metadata=self._metadata(number))
+
+    def _load_docx(self) -> Iterator[Document]:
+        from docx import Document as DocxDocument
+
+        paragraphs = [p.text.strip() for p in DocxDocument(str(self.path)).paragraphs]
+        text = "\n".join(p for p in paragraphs if p)
+        if text:
+            yield Document(page_content=text, metadata=self._metadata(1))
+
+    def _load_txt(self) -> Iterator[Document]:
+        text = self.path.read_text(encoding="utf-8", errors="ignore").strip()
+        if text:
+            yield Document(page_content=text, metadata=self._metadata(1))
 
 
-def load_pdf(file_path: Path) -> list[dict]:
-    documents = []
-    reader = PdfReader(str(file_path))
-
-    for page_number, page in enumerate(reader.pages, start=1):
-        text = page.extract_text() or ""
-        text = text.strip()
-
-        if not text:
-            continue
-
-        documents.append(
-            {
-                "text": text,
-                "source": file_path.name,
-                "page": page_number,
-                "category": infer_category(file_path.name),
-                "company": infer_company(file_path.name),
-            }
-        )
-
-    return documents
+def load_document(file_path: Path | str) -> List[Document]:
+    """Every page of a single policy file."""
+    return list(PolicyDocumentLoader(file_path).lazy_load())
 
 
-def load_docx(file_path: Path) -> list[dict]:
-    doc = DocxDocument(str(file_path))
-    paragraphs = [paragraph.text.strip() for paragraph in doc.paragraphs]
-    text = "\n".join(paragraph for paragraph in paragraphs if paragraph)
-
-    return [
-        {
-            "text": text,
-            "source": file_path.name,
-            "page": 1,
-            "category": infer_category(file_path.name),
-            "company": infer_company(file_path.name),
-        }
-    ]
-
-
-def load_document(file_path: Path) -> list[dict]:
-    suffix = file_path.suffix.lower()
-
-    if suffix == ".pdf":
-        return load_pdf(file_path)
-
-    if suffix == ".docx":
-        return load_docx(file_path)
-
-    if suffix == ".txt":
-        return load_txt(file_path)
-
-    return []
-
-
-def load_policy_documents(policy_dir: Path = POLICY_DOCUMENTS_DIR) -> list[dict]:
+def load_policy_documents(policy_dir: Path = POLICY_DOCUMENTS_DIR) -> List[Document]:
+    """Every page of every policy file in the folder."""
     if not policy_dir.exists():
         raise FileNotFoundError(f"Policy documents folder not found: {policy_dir}")
 
-    documents = []
-
-    for file_path in sorted(policy_dir.iterdir()):
-        if not file_path.is_file():
-            continue
-
-        if file_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
-            continue
-
-        documents.extend(load_document(file_path))
-
+    documents: List[Document] = []
+    for path in sorted(policy_dir.iterdir()):
+        if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS:
+            documents.extend(load_document(path))
     return documents

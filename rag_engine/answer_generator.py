@@ -1,18 +1,33 @@
-"""RAG answer generation: retrieve policy chunks, then ask a hosted LLM to
-answer using only that context, with inline citations and conversation memory.
+"""Cited policy answers, as a LangChain Expression Language chain.
+
+Retrieval runs first and the model is instructed to answer only from what came
+back, so an answer can be attributed to a page rather than to the model's
+memory. The chain is:
+
+    question -> retrieve -> number the context -> prompt -> ChatGroq -> text
+
+Retrieval is done here rather than by a stock retrieval chain because the
+similarity scores are needed twice: shown to the reader as relevance, and used
+to build the numbered context the citations refer to.
 """
+import logging
 import re
+from functools import lru_cache
 from typing import Any, Dict, List, Optional
+
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
 
 from rag_engine import settings
 from rag_engine.config import DEFAULT_TOP_K
-from rag_engine.llm import chat
 from rag_engine.rag_pipeline import search_policy
 
+logger = logging.getLogger("orbis.rag")
 
-PROMPT_TEMPLATE = (
+SYSTEM_PROMPT = (
     "You are an HR assistant. Answer the question using ONLY the numbered "
-    "context below.\n\n"
+    "context provided.\n\n"
     "Rules:\n"
     "- Every statement you make must be supported by the context. Do not add "
     "detail, figures or timeframes that do not appear there, even if you know "
@@ -24,55 +39,55 @@ PROMPT_TEMPLATE = (
     "- Earlier conversation is background only; the answer must come from the "
     "context.\n"
     "- If the context does not answer the question, reply exactly: "
-    "\"I don't know based on the provided documents.\"\n\n"
-    "{history}Context:\n{context}\n\nQuestion:\n{question}\n\nAnswer:"
+    "\"I don't know based on the provided documents.\""
 )
 
+HUMAN_PROMPT = "{history}Context:\n{context}\n\nQuestion:\n{question}"
 
-def build_context(matches: List[Dict[str, Any]]) -> str:
-    parts = []
-    for i, m in enumerate(matches, start=1):
-        excerpt = (m.get("text") or "").replace("\n", " ")[:1000]
-        parts.append(f"[{i}] {m.get('source')} (p{m.get('page')}): {excerpt}")
-    return "\n\n".join(parts)
-
+NOT_FOUND = "I don't know based on the provided documents."
 
 # Models differ in how they mark citations: some emit [1], others the
-# 【1†L3-L4】 form. Normalising to [1] keeps the answer readable and lets the
-# source filter below recognise what was actually cited.
+# 【1†L3-L4】 form, whose number is the model's own internal index rather than
+# ours — so it can yield references like [11] when only eight sources exist.
 _ALT_CITATION = re.compile(r"【\s*(\d+)\s*[^】]*】")
-
-
 _CITATION = re.compile(r"\[(\d+)\]")
 
 
-def normalise_citations(answer: str, source_count: int) -> str:
-    """Convert alternative citation markers to [n], and drop any that point
-    nowhere.
+@lru_cache(maxsize=1)
+def get_llm():
+    """The answering model. Isolated so provider changes stay in one place."""
+    from langchain_groq import ChatGroq
 
-    The 【n†…】 form carries the model's own internal numbering, which does not
-    match the numbering given in the context — so it can yield references like
-    [11] when only eight sources exist. A marker the reader cannot follow is
-    worse than no marker, so out-of-range ones are removed rather than shown.
-    """
-    def keep(match: "re.Match[str]") -> str:
-        index = int(match.group(1))
-        return f"[{index}]" if 1 <= index <= source_count else ""
+    if settings.LLM_PROVIDER != "groq":
+        raise RuntimeError(
+            "The answer chain is configured for Groq. Set LLM_PROVIDER=groq, or "
+            "extend get_llm() with another LangChain chat model."
+        )
+    if not settings.GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY is not set; required to answer policy questions.")
+    return ChatGroq(
+        model=settings.ANSWER_MODEL,
+        api_key=settings.GROQ_API_KEY,
+        temperature=0.0,
+        max_tokens=1024,
+        reasoning_effort=settings.GROQ_REASONING_EFFORT or None,
+    )
 
-    answer = _ALT_CITATION.sub(keep, answer)
-    answer = _CITATION.sub(keep, answer)
-    # Tidy the gaps a removed marker leaves behind.
-    answer = re.sub(r"[ \t]{2,}", " ", answer)
-    answer = re.sub(r"[ \t]+([.,;:])", r"\1", answer)
-    return answer.strip()
+
+@lru_cache(maxsize=1)
+def get_prompt() -> ChatPromptTemplate:
+    return ChatPromptTemplate.from_messages(
+        [("system", SYSTEM_PROMPT), ("human", HUMAN_PROMPT)]
+    )
 
 
-def _cited_only(answer: str, sources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Keep only the retrieved chunks the answer actually cited, so a citation
-    list means "this is what the answer rests on". Falls back to the full set
-    when the model cited nothing, rather than showing no provenance at all."""
-    cited = {int(n) for n in re.findall(r"\[(\d+)\]", answer)}
-    return [s for s in sources if s["idx"] in cited] or sources
+def build_context(matches: List[Dict[str, Any]]) -> str:
+    """Number the retrieved chunks so the model has something to cite."""
+    return "\n\n".join(
+        f"[{i}] {m.get('source')} (p{m.get('page')}): "
+        f"{(m.get('text') or '').replace(chr(10), ' ')[:1000]}"
+        for i, m in enumerate(matches, start=1)
+    )
 
 
 def _format_history(history: Optional[List[Dict[str, str]]]) -> str:
@@ -82,19 +97,55 @@ def _format_history(history: Optional[List[Dict[str, str]]]) -> str:
     return "Conversation so far:\n" + "\n".join(lines) + "\n\n"
 
 
+def normalise_citations(answer: str, source_count: int) -> str:
+    """Convert alternative citation markers to [n], and drop any that point
+    nowhere — a marker the reader cannot follow is worse than no marker."""
+    def keep(match: "re.Match[str]") -> str:
+        index = int(match.group(1))
+        return f"[{index}]" if 1 <= index <= source_count else ""
+
+    answer = _ALT_CITATION.sub(keep, answer)
+    answer = _CITATION.sub(keep, answer)
+    answer = re.sub(r"[ \t]{2,}", " ", answer)
+    answer = re.sub(r"[ \t]+([.,;:])", r"\1", answer)
+    return answer.strip()
+
+
+def _cited_only(answer: str, sources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Keep only the chunks the answer actually cited, so a citation list means
+    "this is what the answer rests on". Falls back to the full retrieval set
+    when the model cited nothing, rather than showing no provenance at all."""
+    cited = {int(n) for n in _CITATION.findall(answer)}
+    return [s for s in sources if s["idx"] in cited] or sources
+
+
+@lru_cache(maxsize=1)
+def get_chain():
+    """question + context + history -> prompt -> model -> plain text."""
+    return (
+        RunnablePassthrough()
+        | get_prompt()
+        | get_llm()
+        | StrOutputParser()
+    )
+
+
 def answer_question(
     question: str,
     top_k: int = DEFAULT_TOP_K,
     history: Optional[List[Dict[str, str]]] = None,
 ) -> Dict[str, Any]:
+    """Retrieve, answer from what was retrieved, and report what was cited."""
     matches = search_policy(question, top_k=top_k)["results"]
     context = build_context(matches)
-    prompt = PROMPT_TEMPLATE.format(
-        history=_format_history(history), context=context, question=question
-    )
-    answer = normalise_citations(
-        chat(prompt, model=settings.ANSWER_MODEL), source_count=len(matches)
-    )
+
+    raw = get_chain().invoke({
+        "question": question,
+        "context": context,
+        "history": _format_history(history),
+    })
+    answer = normalise_citations(raw, source_count=len(matches))
+
     sources = [
         {
             "idx": i,
@@ -106,16 +157,11 @@ def answer_question(
         }
         for i, m in enumerate(matches, start=1)
     ]
-    retrieval_confidence = max((m.get("score") or 0.0 for m in matches), default=0.0)
     return {
         "question": question,
         "answer": answer,
         "sources": _cited_only(answer, sources),
         # Verification runs against everything retrieved, not just what was cited.
         "context": context,
-        "retrieval_confidence": retrieval_confidence,
+        "retrieval_confidence": max((m.get("score") or 0.0 for m in matches), default=0.0),
     }
-
-
-if __name__ == "__main__":
-    print(answer_question("What does the company policy say about code of conduct?", top_k=3))

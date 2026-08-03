@@ -114,3 +114,15 @@ watchfiles==1.2.0
 websocket-client==1.9.0
 websockets==16.0
 yarl==1.24.2
+
+# LangChain — retrieval pipeline (loader, splitter, vector store,
+# embeddings and the answer chain). The NL->SQL path is deliberately
+# not routed through it; see rag_engine/nl_to_sql.py.
+langchain-core==1.5.3
+langchain-text-splitters==1.1.2
+langchain-chroma==1.1.0
+langchain-huggingface==1.2.2
+langchain-groq==1.1.3
+langsmith==0.10.15
+groq==0.37.1
+langchain-protocol==0.0.18
