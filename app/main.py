@@ -51,10 +51,41 @@ def _warm_embedding_model() -> None:
     threading.Thread(target=load, name="embedding-warmup", daemon=True).start()
 
 
+def _check_index_is_current() -> None:
+    """Warn when a policy document on disk has never been indexed.
+
+    Policy PDFs are in version control but the index is not — it is generated.
+    So pulling new documents leaves them invisible to search, and the failure is
+    silent: the app starts, answers questions, and simply never mentions the new
+    policy. Saying so at startup turns that into an obvious instruction.
+    """
+    try:
+        from rag_engine import vector_store
+        from rag_engine.config import POLICY_DOCUMENTS_DIR
+        from rag_engine.document_loader import SUPPORTED_EXTENSIONS
+
+        if not POLICY_DOCUMENTS_DIR.exists():
+            return
+        on_disk = {
+            p.name for p in POLICY_DOCUMENTS_DIR.iterdir()
+            if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS
+        }
+        missing = sorted(n for n in on_disk if vector_store.count_by_source(n) == 0)
+        if missing:
+            logger.warning(
+                "%d policy document(s) are not in the search index and cannot be "
+                "found by the assistant: %s. Run:  python -m rag_engine.maintenance",
+                len(missing), ", ".join(missing),
+            )
+    except Exception:
+        logger.debug("Could not check the policy index", exc_info=True)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
     seed_policy_files()
+    _check_index_is_current()
     _warm_embedding_model()
     yield
 

@@ -179,6 +179,33 @@ python -m tests.e2e_check --admin-email you@orbis.com --admin-password 'yours'
 45 checks against the running system. Add `--quick` to skip the ones that call
 the AI.
 
+### Pulling someone else's changes
+
+An existing install usually needs nothing beyond the pull — new database tables
+are created at startup, and new settings all have defaults.
+
+The exception is the **search index**. Policy PDFs are in version control; the
+index built from them is not, because it is generated. So a pull that brings new
+policy documents leaves them invisible to search until you rebuild:
+
+```bash
+git pull
+python -m rag_engine.maintenance    # only if policy_documents/ changed
+./start.sh                          # Windows: start.bat
+```
+
+The backend says so at startup if any document is missing from the index, so you
+do not have to remember:
+
+```
+WARNING  2 policy document(s) are not in the search index and cannot be
+         found by the assistant: Orbis_POSH_Policy.pdf, ... 
+         Run:  python -m rag_engine.maintenance
+```
+
+If dependencies ever do change, `./setup.sh` is always safe to re-run — it skips
+whatever is already done.
+
 ### If something goes wrong
 
 | Symptom | Cause and fix |
