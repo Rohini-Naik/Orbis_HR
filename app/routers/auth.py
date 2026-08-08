@@ -10,6 +10,7 @@ from app.auth import (
     bearer_scheme,
     create_token,
     get_current_user,
+    require_valid_hr_identity,
     revoke_token,
     verify_password,
 )
@@ -55,6 +56,17 @@ def _record_failure(email: str) -> None:
 
 
 def _issue_token(user_id: int) -> str:
+    user = query_one("SELECT * FROM users WHERE id = %s", (user_id,))
+    if user is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Account not found")
+    if not user.get("is_active", 1):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "This account has been deactivated. Please contact HR.",
+        )
+    # Centralised here so login, signup, invite acceptance, password reset, and
+    # password change can never create a session without the same HR check.
+    require_valid_hr_identity(user)
     token = create_token()
     execute("INSERT INTO sessions (token, user_id) VALUES (%s, %s)", (token, user_id))
     return token

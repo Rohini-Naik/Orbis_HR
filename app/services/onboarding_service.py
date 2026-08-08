@@ -13,12 +13,11 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
-import mysql.connector
 from fastapi import HTTPException, status
 
 from app.auth import hash_password
 from app.db import execute, query_one
-from app.services import audit_service, mailer
+from app.services import audit_service, hr_identity_service, mailer
 from rag_engine import settings
 
 NOT_ON_RECORD = (
@@ -29,22 +28,8 @@ ALREADY_REGISTERED = "An account already exists for that address. Please sign in
 INVITE_INVALID = "This invitation link is invalid, has expired, or has already been used."
 
 
-def _hr_lookup(email: str) -> Optional[Dict[str, Any]]:
-    """Read-only HR lookup by company email."""
-    conn = mysql.connector.connect(**settings.get_mysql_config(), connection_timeout=10)
-    try:
-        cur = conn.cursor(dictionary=True)
-        cur.execute(
-            "SELECT EmployeeID, FullName, Department, Status FROM employees WHERE Email = %s",
-            (email,),
-        )
-        return cur.fetchone()
-    finally:
-        conn.close()
-
-
 def _create_user(email: str, password: str, full_name: str,
-                 employee_id: Optional[int], department: Optional[str]) -> int:
+                 employee_id: Optional[str], department: Optional[str]) -> int:
     return execute(
         "INSERT INTO users (email, password_hash, full_name, role, employee_id, department) "
         "VALUES (%s, %s, %s, 'employee', %s, %s)",
@@ -92,20 +77,31 @@ def accept_invite(token: str, password: str) -> Dict[str, Any]:
     if query_one("SELECT id FROM users WHERE email = %s", (invite["company_email"],)):
         raise HTTPException(status.HTTP_409_CONFLICT, ALREADY_REGISTERED)
 
-    record = _hr_lookup(invite["company_email"])
+    record = hr_identity_service.get_by_identity(
+        invite["employee_id"], invite["company_email"]
+    )
+    if not hr_identity_service.is_active(record):
+        # Retire every copy for this address. A missing, reassigned, or exited HR
+        # identity must never be able to create an account later.
+        execute(
+            "UPDATE invites SET used_at = NOW() "
+            "WHERE company_email = %s AND used_at IS NULL",
+            (invite["company_email"],),
+        )
+        raise HTTPException(status.HTTP_404_NOT_FOUND, INVITE_INVALID)
     user_id = _create_user(
-        invite["company_email"], password, invite["full_name"],
-        invite["employee_id"], (record or {}).get("Department"),
+        record["Email"], password, record["FullName"],
+        record["EmployeeID"], record.get("Department"),
     )
     # Single use: burn the token, and retire any other outstanding invite for
     # the same address so a reissued link cannot create a second account.
     execute("UPDATE invites SET used_at = NOW() WHERE company_email = %s AND used_at IS NULL",
             (invite["company_email"],))
-    audit_service.log_event("onboarding", user={"id": user_id, "full_name": invite["full_name"],
-                                                "email": invite["company_email"], "role": "employee"},
+    audit_service.log_event("onboarding", user={"id": user_id, "full_name": record["FullName"],
+                                                "email": record["Email"], "role": "employee"},
                             question="Accepted invitation")
-    return {"id": user_id, "email": invite["company_email"],
-            "full_name": invite["full_name"], "role": "employee"}
+    return {"id": user_id, "email": record["Email"],
+            "full_name": record["FullName"], "role": "employee"}
 
 
 # -------------------------------------------------------------- self-service
@@ -114,16 +110,16 @@ def self_register(company_email: str, password: str) -> Dict[str, Any]:
     if query_one("SELECT id FROM users WHERE email = %s", (company_email,)):
         raise HTTPException(status.HTTP_409_CONFLICT, ALREADY_REGISTERED)
 
-    record = _hr_lookup(company_email)
-    if record is None or record.get("Status") == "exited":
+    record = hr_identity_service.get_by_email(company_email)
+    if not hr_identity_service.is_active(record):
         raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_ON_RECORD)
 
     user_id = _create_user(
-        company_email, password, record["FullName"],
+        record["Email"], password, record["FullName"],
         record["EmployeeID"], record.get("Department"),
     )
     audit_service.log_event("onboarding", user={"id": user_id, "full_name": record["FullName"],
-                                                "email": company_email, "role": "employee"},
+                                                "email": record["Email"], "role": "employee"},
                             question="Self-registered")
-    return {"id": user_id, "email": company_email,
+    return {"id": user_id, "email": record["Email"],
             "full_name": record["FullName"], "role": "employee"}

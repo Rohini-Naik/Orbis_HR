@@ -9,8 +9,7 @@ from typing import Any, Dict, Iterator, List, Optional
 import mysql.connector
 from fastapi import HTTPException, status
 
-from app.auth import revoke_user_sessions
-from app.db import execute, query_one
+from app.db import execute, get_conn, query_one
 from app.services import audit_service
 from app.services.identity import generate_email
 from rag_engine import settings
@@ -191,10 +190,23 @@ def delete(employee_id: str, admin: Dict[str, Any]) -> None:
     if affected == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Employee not found or already exited")
 
-    linked = query_one("SELECT id FROM users WHERE employee_id = %s", (employee_id,))
-    if linked:
-        execute("UPDATE users SET is_active = 0 WHERE id = %s", (linked["id"],))
-        revoke_user_sessions(linked["id"])
+    # employee_id is not unique on legacy users tables, so deactivate every
+    # linked account rather than silently revoking only whichever row
+    # ``query_one`` happened to return. Keep the account update and session
+    # cleanup in one app-database transaction.
+    with get_conn() as app_conn:
+        app_cur = app_conn.cursor()
+        app_cur.execute(
+            "UPDATE users SET is_active = 0 WHERE employee_id = %s",
+            (employee_id,),
+        )
+        app_cur.execute(
+            "DELETE s FROM sessions s "
+            "INNER JOIN users u ON u.id = s.user_id "
+            "WHERE u.employee_id = %s",
+            (employee_id,),
+        )
+        app_cur.close()
     execute("UPDATE invites SET used_at = NOW() WHERE employee_id = %s AND used_at IS NULL",
             (employee_id,))
     audit_service.log_event(
@@ -212,8 +224,15 @@ def reinstate(employee_id: str, admin: Dict[str, Any]) -> Dict[str, Any]:
         cur.close()
     if affected == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Employee not found")
-    linked = query_one("SELECT id FROM users WHERE employee_id = %s", (employee_id,))
+    record = get(employee_id)
+    # Legacy data may contain multiple accounts with the same employee_id.
+    # Reactivate only the account whose company email still matches the
+    # authoritative HR identity; never pick an arbitrary duplicate.
+    linked = query_one(
+        "SELECT id FROM users WHERE employee_id = %s AND email = %s",
+        (employee_id, record.get("Email")),
+    )
     if linked:
         execute("UPDATE users SET is_active = 1 WHERE id = %s", (linked["id"],))
     audit_service.log_event("employee", user=admin, question=f"Reinstated employee {employee_id}")
-    return get(employee_id)
+    return record
